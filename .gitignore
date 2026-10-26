@@ -1,0 +1,21 @@
+node_modules
+dist
+test-results
+playwright-report
+coverage
+.DS_Store
+
+# The Personal API key, in .env at the root: it never goes in the repo.
+.env
+.env.*
+
+# A runner's own data: activity files and API dumps stay on the machine.
+*.fit
+*.zip
+*.gpx
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+
+# Playwright MCP session logs
+.playwright-mcp
