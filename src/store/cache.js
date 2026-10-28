@@ -4,7 +4,7 @@
 import { createStore, del, get, set } from "idb-keyval";
 
 // Bump it when the page starts reading a field KEPT drops: the old cache is then read again.
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 3;
 
 // The fields the pages and src/utils/metrics.js read. A Garmin list item has ~100.
 // why trim what is read too, not only what is cached: a field missing here then shows up
@@ -34,6 +34,11 @@ const KEPT = [
   "trainingEffectLabel",
   "averageRunningCadenceInStepsPerMinute",
   "avgPower",
+  // Read by src/utils/race.js only: on every run from 2024 (probed 2026-10-28).
+  "fastestSplit_5000",
+  "fastestSplit_10000",
+  "fastestSplit_21098",
+  "fastestSplit_42195",
 ];
 
 export function trim(activity) {

@@ -40,6 +40,8 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   Daily summaries (`heartRate.restingValue`) answer up to 365 days, sleep summaries up to 31
   (an object keyed "0", "1"…); both start 2024-01 here, older daily summaries carry no heart
   rate. Heart-rate zones are the current settings only. Activity detail carries no RPE/feel.
+  Runs carry `fastestSplit_5000/10000/21098/42195` (best stretch inside the run) from 2024 on;
+  the Personal API has no race-prediction endpoint, so `src/utils/race.js` scores them (VDOT).
 - The cached history (IndexedDB, one entry per account) is merged by `activityId`; only
   Refresh sees an activity edited or deleted on an older day.
 - Every activity is trimmed to `KEPT` in `src/store/cache.js`: reading a new field means

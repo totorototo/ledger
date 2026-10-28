@@ -14,6 +14,7 @@ import {
   screen,
   weekStart,
 } from "./metrics.js";
+import { bestVdot, racePrediction } from "./race.js";
 import { monthly, weeklyLoad } from "./training.js";
 import { byYear, change, summarize } from "./yearStats.js";
 
@@ -268,6 +269,8 @@ export function insights(
       cadence: round(median(monthRuns.map((a) => a.averageRunningCadenceInStepsPerMinute)), 0),
       power: round(median(monthRuns.map((a) => a.avgPower)), 0),
       runsWithPower: monthRuns.filter((a) => a.avgPower > 0).length,
+      // The month's best effort scored as VDOT (race.js): a month with no hard run reads low.
+      bestVdot: bestVdot(monthRuns),
       hrv: hrvSummary(nightsIn(`${m.key}-01`, `${m.key}-31`)),
       restingHr: restingSummary(resting, `${m.key}-01`, `${m.key}-31`),
       sleep: sleepIn(`${m.key}-01`, `${m.key}-31`),
@@ -309,6 +312,7 @@ export function insights(
     zones,
     plan: planSummary(plan, until),
     lastWeek: lastWeek(activities, until, first, { nights, resting, sleep: slept, entries }),
+    race: racePrediction(activities, until),
     weeks,
     months,
     years,

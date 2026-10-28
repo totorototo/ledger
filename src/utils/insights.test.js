@@ -292,4 +292,17 @@ describe("insights", () => {
     expect(bare.lastWeek).toMatchObject({ restingHr: null, sleep: null, notes: [] });
     expect(bare.plan).toBeNull();
   });
+
+  it("predicts race times from the best split of the last 12 weeks, and scores each month", () => {
+    const result = insights(
+      [
+        easyRun(1, "2026-09-10"),
+        easyRun(2, "2026-10-20", { fastestSplit_5000: 19 * 60 + 57, fastestSplit_10000: 2600 }),
+      ],
+      "2026-10-25",
+    );
+    expect(result.race.effort).toMatchObject({ date: "2026-10-20", distance: "5k", vdot: 50 });
+    expect(result.race.predictions).toHaveLength(4);
+    expect(result.months.map((m) => m.bestVdot)).toEqual([null, 50]);
+  });
 });
