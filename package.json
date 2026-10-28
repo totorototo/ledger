@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "icons": "node scripts/make-icons.mjs",
-    "export": "node scripts/export.mjs"
+    "export": "node scripts/export.mjs",
+    "report": "node scripts/report.mjs"
   },
   "dependencies": {
     "@styled-icons/feather": "10.47.0",

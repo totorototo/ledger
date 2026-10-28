@@ -92,3 +92,29 @@ Same month last year: <efficiency or "no data"> → <better / worse / about the 
 
 End with: _Based on Garmin's activity and wellness summaries; heat, terrain and sensor accuracy move these
 numbers; not medical advice._
+
+## 5. Publish the page
+
+After the write-up, the same reading as a page in Ledger's style (`scripts/reports/aerobic-progress.html`).
+The page takes its numbers from `metrics.json` itself: you write only words.
+
+1. Write `data/reports/aerobic-progress.notes.json` (shape below). Text may quote numbers from
+   `metrics.json`, as the write-up does; never one of your own.
+2. Run `npm run report -- aerobic-progress`. It checks the notes, writes `data/reports/aerobic-progress.html`
+   and prints the page's link, if it has one. On an error, fix the notes it names and run it
+   again.
+3. Publish `data/reports/aerobic-progress.html` with the Artifact tool. With a link: read that
+   artifact first, then publish with it as `url`, so the page updates in place. Without one:
+   publish it new (icon `chart`), then record its link with
+   `npm run report -- aerobic-progress --url <link>`.
+4. End the reply with the link. The page uploads the account's data to claude.ai, private
+   until the runner shares it: never share it yourself.
+
+```json
+{
+  "headline": "two to four words: the state of the trend (\"Up on last year\", \"Unread since July\")",
+  "takeaway": "one sentence: latest against the same month a year earlier",
+  "trend": ["the Trend sentences, one per item"],
+  "worthTrying": "the Worth trying line, or null"
+}
+```

@@ -1,0 +1,209 @@
+<title>Race Predictor</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+<style>
+  /* Trust as three steps, filled to its level: a scale, not a verdict. */
+  .stat .trust {
+    order: 4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+  }
+  .steps {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .steps i {
+    width: 0.875rem;
+    height: 0.25rem;
+    border-radius: 1px;
+    background: var(--rule);
+  }
+  .steps i.on {
+    background: var(--text);
+  }
+  .stat.anchor .steps i.on {
+    background: var(--primary);
+  }
+  tbody tr:first-child td:nth-child(3) {
+    color: var(--primary-text);
+    font-weight: 600;
+  }
+</style>
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow">Race predictor · last 12 weeks</p>
+    <h1 class="title">What you could run</h1>
+    <p class="lede" data-f="notes.takeaway">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band split">
+    <div class="stack">
+      <h2 class="section-title">Reading it</h2>
+      <ul class="prose" id="reading"></ul>
+      <div class="callout">
+        <span class="eyebrow">To sharpen it</span>
+        <p data-f="notes.sharpen">—</p>
+      </div>
+    </div>
+    <div class="stack">
+      <div>
+        <h2 class="section-title ledger-title">The effort behind them</h2>
+        <dl class="ledger">
+          <div>
+            <dt>Stretch</dt>
+            <dd><span data-f="effort.label">—</span> in <span data-f="effort.time">—</span></dd>
+          </div>
+          <div>
+            <dt>Date</dt>
+            <dd data-f="effort.date" data-fmt="date">—</dd>
+          </div>
+          <div>
+            <dt>VDOT</dt>
+            <dd data-f="effort.vdot" data-fmt="one">—</dd>
+          </div>
+          <div>
+            <dt>Label</dt>
+            <dd data-f="effort.effect" data-fmt="effect">—</dd>
+          </div>
+          <div>
+            <dt>Whole run</dt>
+            <dd>
+              <span data-f="effort.runKm" data-fmt="km">—</span> ·
+              <span data-f="effort.averageHR">—</span> bpm
+            </dd>
+          </div>
+        </dl>
+        <p class="note">Garmin's fastest stretch inside a training run, not a race.</p>
+      </div>
+      <div>
+        <h2 class="section-title ledger-title">What the long races rest on</h2>
+        <dl class="ledger">
+          <div>
+            <dt>Per week</dt>
+            <dd data-f="volume.weeklyRunKm" data-fmt="km">—</dd>
+          </div>
+          <div>
+            <dt>Longest run</dt>
+            <dd data-f="volume.longestRunKm" data-fmt="km">—</dd>
+          </div>
+          <div>
+            <dt>Runs &gt; 25 km</dt>
+            <dd data-f="volume.runsOver25Km">—</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="chart-head">
+      <h2 class="section-title">Best VDOT by month</h2>
+      <div class="readout" id="readout"></div>
+    </div>
+    <div class="plot" id="plot"></div>
+    <p class="note" data-f="notes.trend">—</p>
+  </section>
+
+  <section class="band">
+    <h2 class="section-title">Best efforts, last 12 weeks</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="text">Stretch</th>
+            <th>Time</th>
+            <th>Pace</th>
+            <th>VDOT</th>
+            <th class="text">Label</th>
+          </tr>
+        </thead>
+        <tbody id="efforts"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  const LEVEL = { high: 3, fair: 2, low: 1 };
+  document.getElementById("stats").append(
+    ...R.predictions.map((p) => {
+      const anchor = p.distance === R.effort.distance;
+      const node = stat({
+        label: p.label,
+        value: p.time,
+        sub: anchor ? `${p.pace} · your effort` : p.pace,
+        why: p.why,
+        anchor,
+      });
+      const steps = el(
+        "span",
+        { className: "steps" },
+        ...[1, 2, 3].map((i) => el("i", { className: i <= LEVEL[p.trust] ? "on" : "" })),
+      );
+      node.append(el("dd", { className: "trust" }, steps, `${p.trust} trust`));
+      return node;
+    }),
+  );
+
+  document.getElementById("reading").append(...R.notes.reading.map((t) => el("li", {}, t)));
+
+  document
+    .getElementById("efforts")
+    .append(
+      ...R.efforts.map((e) =>
+        el(
+          "tr",
+          {},
+          el("td", {}, fmt.short(e.date)),
+          el("td", { className: "text" }, e.label),
+          el("td", {}, e.time),
+          el("td", {}, e.pace),
+          el("td", {}, fmt.one(e.vdot)),
+          el("td", { className: "text" }, fmt.effect(e.effect)),
+        ),
+      ),
+    );
+
+  const has = R.trend.filter((t) => t.vdot != null);
+  if (has.length) {
+    const last = has.at(-1);
+    const peak = has.reduce((a, b) => (b.vdot > a.vdot ? b : a));
+    const readout = document.getElementById("readout");
+    readout.append(el("span", {}, strong(fmt.one(last.vdot)), ` ${fmt.month(last.month)}`));
+    if (peak !== last)
+      readout.append(
+        el(
+          "span",
+          { className: "soft" },
+          "best ",
+          strong(fmt.one(peak.vdot)),
+          ` ${fmt.month(peak.month)}`,
+        ),
+      );
+    lineChart(document.getElementById("plot"), {
+      labels: monthLabels(R.trend.map((t) => t.month)),
+      series: [{ values: R.trend.map((t) => t.vdot) }],
+      step: 5,
+      tip: (i) => [
+        fmt.month(R.trend[i].month),
+        R.trend[i].vdot == null ? "no split" : `VDOT ${fmt.one(R.trend[i].vdot)}`,
+      ],
+    });
+  }
+</script>

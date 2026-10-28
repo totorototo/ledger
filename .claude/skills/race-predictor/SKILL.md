@@ -97,3 +97,35 @@ Next race: <plan.nextRace.text> in <daysTo> days: <the matching prediction, or "
 
 End with: _Predicted from Garmin's fastest splits with Daniels' VDOT tables, assuming a flat road
 race run all out and training for the distance; an estimate, not a promise._
+
+## 6. Publish the page
+
+After the write-up, the same reading as a page in Ledger's style (`scripts/reports/race-predictor.html`).
+The page takes its numbers from `metrics.json` itself: you write only words.
+
+1. Write `data/reports/race-predictor.notes.json` (shape below). Text may quote numbers from
+   `metrics.json`, as the write-up does; never one of your own.
+2. Run `npm run report -- race-predictor`. It checks the notes, writes `data/reports/race-predictor.html`
+   and prints the page's link, if it has one. On an error, fix the notes it names and run it
+   again.
+3. Publish `data/reports/race-predictor.html` with the Artifact tool. With a link: read that
+   artifact first, then publish with it as `url`, so the page updates in place. Without one:
+   publish it new (icon `chart`), then record its link with
+   `npm run report -- race-predictor --url <link>`.
+4. End the reply with the link. The page uploads the account's data to claude.ai, private
+   until the runner shares it: never share it yourself.
+
+```json
+{
+  "takeaway": "one sentence: what the runner could run, and how far to trust it",
+  "trust": {
+    "5k": { "level": "high | fair | low", "why": "a few words, from step 3" },
+    "10k": { "level": "…", "why": "…" },
+    "half": { "level": "…", "why": "…" },
+    "marathon": { "level": "…", "why": "…" }
+  },
+  "reading": ["the Reading it bullets, one sentence or two each"],
+  "trend": "the Trend line",
+  "sharpen": "the To sharpen it line"
+}
+```

@@ -1,0 +1,469 @@
+<title>Weekly Review</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+<style>
+  /* Intensity: one bar in the trend ramp, easy soft to hard strong, as the Training page. */
+  .split-bar {
+    display: flex;
+    height: 0.75rem;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--hairline);
+  }
+  .split-bar i {
+    display: block;
+    height: 100%;
+  }
+  .split-bar i + i {
+    border-left: 2px solid var(--bg);
+  }
+  .split-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-top: 0.5rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .split-key span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .split-key i {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 2px;
+  }
+  .standouts b {
+    display: block;
+  }
+  .standouts small {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  @media (min-width: 40em) {
+    .standouts li {
+      grid-template-columns: 14rem 1fr;
+    }
+  }
+  .standouts b::before {
+    background: var(--trend);
+  }
+  td.easy {
+    color: var(--ok);
+  }
+</style>
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow">Weekly review · against the 4 weeks before</p>
+    <h1 class="title" id="title">—</h1>
+    <p class="lede" data-f="notes.takeaway">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band split">
+    <div class="stack">
+      <h2 class="section-title">Stand-out sessions</h2>
+      <ul class="flags standouts" id="standouts"></ul>
+      <h2 class="section-title">Takeaways</h2>
+      <ol class="prose" id="takeaways"></ol>
+      <p class="note" data-f="notes.caveat"></p>
+    </div>
+    <div class="stack">
+      <div>
+        <h2 class="section-title ledger-title">Intensity</h2>
+        <div class="split-bar" id="bar"></div>
+        <div class="split-key" id="bar-key"></div>
+      </div>
+      <dl class="ledger">
+        <div>
+          <dt>Load ratio</dt>
+          <dd data-f="load.ratio" data-fmt="two">—</dd>
+        </div>
+        <div>
+          <dt>7-day / 28-day</dt>
+          <dd><span data-f="load.acute">—</span> / <span data-f="load.chronic">—</span></dd>
+        </div>
+        <div>
+          <dt>Labels</dt>
+          <dd id="effects">—</dd>
+        </div>
+        <div>
+          <dt>Plan</dt>
+          <dd id="plan">—</dd>
+        </div>
+        <div>
+          <dt>Next race</dt>
+          <dd id="race">—</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="chart-head">
+      <h2 class="section-title">Recovery, night by night</h2>
+      <div class="readout" id="readout"></div>
+    </div>
+    <div class="plot" id="nights"></div>
+    <p class="note">
+      HRV against Garmin's balanced band (shaded), sleep against 7 h (dashed), resting heart rate
+      under each night.
+    </p>
+  </section>
+
+  <section class="band">
+    <h2 class="section-title">Sessions</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th class="text">Session</th>
+            <th>km</th>
+            <th>Time</th>
+            <th>Climb</th>
+            <th>HR</th>
+            <th>Load</th>
+            <th class="text">Label</th>
+            <th class="text">Effort</th>
+          </tr>
+        </thead>
+        <tbody id="sessions"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  // 0.82 h → "49 min", 1.5 h → "1h30", as the app's formatDuration.
+  const duration = (h) => {
+    const m = Math.round(h * 60);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+  };
+  const [, fm, fd] = parts(R.from),
+    [, um, ud] = parts(R.until);
+  document.getElementById("title").textContent =
+    fm === um
+      ? `${fd} – ${ud} ${MONTHS[um - 1]}`
+      : `${fd} ${MONTHS[fm - 1]} – ${ud} ${MONTHS[um - 1]}`;
+
+  const v = R.volume,
+    a = R.average,
+    c = R.change;
+  const vs = (change, avg) => (change == null ? "no 4-week average" : `${change} vs ${avg}`);
+  document.getElementById("stats").append(
+    stat({
+      label: "Distance",
+      value: fmt.one(v.km),
+      unit: "km",
+      sub: vs(c.km, `${fmt.one(a.km)} km`),
+      anchor: true,
+    }),
+    stat({ label: "Time", value: duration(v.hours), sub: vs(c.hours, duration(a.hours)) }),
+    stat({ label: "Load", value: show(v.load), sub: vs(c.load, show(a.load, "int")) }),
+    stat({
+      label: "Sessions",
+      value: show(v.count),
+      sub: `${v.runs} run${v.runs === 1 ? "" : "s"} · ${fmt.one(v.runKm)} km · ${show(v.climbM)} m up`,
+    }),
+  );
+
+  document
+    .getElementById("standouts")
+    .append(
+      ...R.notes.standouts.map((s) =>
+        el(
+          "li",
+          {},
+          el("b", {}, s.name, el("small", {}, ` ${fmt.weekday(s.date)} ${fmt.short(s.date)}`)),
+          el("span", {}, s.text),
+        ),
+      ),
+    );
+  document
+    .getElementById("takeaways")
+    .append(...R.notes.takeaways.map((t) => el("li", {}, el("span", {}, t))));
+
+  const parts3 = [
+    ["easy", "Easy Z1–2", "var(--trend-soft)"],
+    ["moderate", "Moderate Z3", "var(--trend)"],
+    ["hard", "Hard Z4–5", "var(--trend-strong)"],
+  ];
+  const pct = (k) => R.intensity[`${k}Pct`];
+  document
+    .getElementById("bar")
+    .append(
+      ...parts3
+        .filter(([k]) => pct(k) > 0)
+        .map(([k, , color]) => el("i", { style: `width:${pct(k)}%;background:${color}` })),
+    );
+  document
+    .getElementById("bar-key")
+    .append(
+      ...parts3.map(([k, label, color]) =>
+        el("span", {}, el("i", { style: `background:${color}` }), `${label} ${show(pct(k))}%`),
+      ),
+    );
+
+  const eff = Object.entries(R.effects).map(([k, n]) => `${n} ${fmt.effect(k).toLowerCase()}`);
+  document.getElementById("effects").textContent = eff.join(" · ") || "—";
+  document.getElementById("plan").textContent = R.planNotes.join(" · ") || "nothing noted";
+  document.getElementById("race").textContent = R.nextRace
+    ? `${R.nextRace.text} · ${R.nextRace.daysTo} d`
+    : "none planned";
+
+  document
+    .getElementById("sessions")
+    .append(
+      ...R.sessions.map((s) =>
+        el(
+          "tr",
+          {},
+          el("td", {}, `${fmt.weekday(s.date)} ${fmt.short(s.date)}`),
+          el("td", { className: "text" }, s.name ?? fmt.effect(s.type)),
+          el("td", {}, show(s.km, "one")),
+          el("td", {}, duration(s.hours)),
+          el("td", {}, s.climbM == null ? "—" : `${s.climbM} m`),
+          el("td", {}, show(s.averageHR)),
+          el("td", {}, show(s.load)),
+          el("td", { className: "text" }, fmt.effect(s.effect)),
+          el("td", { className: s.easy ? "text easy" : "text" }, s.easy ? "easy" : "hard"),
+        ),
+      ),
+    );
+
+  // The readout: the week's averages.
+  const ro = document.getElementById("readout");
+  if (R.hrv) ro.append(el("span", {}, strong(fmt.int(R.hrv.average)), " ms HRV"));
+  if (R.sleep) ro.append(el("span", {}, strong(fmt.one(R.sleep.averageHours)), " h sleep"));
+  if (R.restingHr)
+    ro.append(
+      el("span", { className: "soft" }, strong(fmt.int(R.restingHr.average)), " bpm resting"),
+    );
+
+  // Seven columns, one a night: HRV over its band on top, sleep bars under, resting HR below.
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const [y, m, d] = parts(R.from);
+    return new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10);
+  });
+  const by = (list) => new Map((list ?? []).map((d) => [d.date, d]));
+  const hrvBy = by(R.hrv?.days),
+    sleepBy = by(R.sleep?.days),
+    restBy = by(R.restingHr?.days);
+  const box = document.getElementById("nights");
+  const tipEl = el("div", { className: "tip", hidden: true });
+  const drawNights = () => {
+    box.replaceChildren();
+    const W = Math.max(280, box.clientWidth),
+      colW = W / 7,
+      x = (i) => colW * (i + 0.5);
+    const hTop = 120,
+      gap = 22,
+      hSleep = 70,
+      H = hTop + gap + hSleep + 44;
+    const s = svg("svg", {
+      viewBox: `0 0 ${W} ${H}`,
+      height: H,
+      role: "img",
+      "aria-label": "HRV, sleep and resting heart rate by night",
+    });
+    const hrvVals = (R.hrv?.days ?? [])
+      .flatMap((d) => [d.lastNightAvg, d.balancedLow, d.balancedUpper])
+      .filter((q) => q != null);
+    const lo = Math.floor((Math.min(...hrvVals, 100) - 4) / 5) * 5,
+      hi = Math.ceil((Math.max(...hrvVals, 0) + 4) / 5) * 5;
+    const yH = (q) => 8 + (hTop - 16) * (1 - (q - lo) / (hi - lo));
+    const sleepMax = Math.max(9, ...(R.sleep?.days ?? []).map((d) => d.hours));
+    const sTop = hTop + gap,
+      yS = (q) => sTop + hSleep * (1 - q / sleepMax);
+    s.append(
+      svg(
+        "text",
+        {
+          x: 0,
+          y: 8,
+          "font-family": "var(--mono)",
+          "font-size": 9,
+          "font-weight": 600,
+          "letter-spacing": "0.1em",
+          fill: "var(--faint)",
+        },
+        "HRV MS",
+      ),
+    );
+    s.append(
+      svg(
+        "text",
+        {
+          x: 0,
+          y: sTop - 6,
+          "font-family": "var(--mono)",
+          "font-size": 9,
+          "font-weight": 600,
+          "letter-spacing": "0.1em",
+          fill: "var(--faint)",
+        },
+        "SLEEP H",
+      ),
+    );
+    s.append(
+      svg("line", {
+        x1: 0,
+        x2: W,
+        y1: yS(7),
+        y2: yS(7),
+        stroke: "var(--rule)",
+        "stroke-dasharray": "4 4",
+      }),
+    );
+    s.append(
+      svg("line", {
+        x1: 0,
+        x2: W,
+        y1: sTop + hSleep,
+        y2: sTop + hSleep,
+        stroke: "var(--hairline)",
+      }),
+    );
+    const bw = Math.min(28, colW * 0.5);
+    days.forEach((day, i) => {
+      const h = hrvBy.get(day),
+        sl = sleepBy.get(day),
+        r = restBy.get(day);
+      if (h?.balancedLow != null && h.balancedUpper != null)
+        s.append(
+          svg("rect", {
+            x: x(i) - bw / 2,
+            width: bw,
+            y: yH(h.balancedUpper),
+            height: yH(h.balancedLow) - yH(h.balancedUpper),
+            rx: 2,
+            fill: "var(--hairline)",
+            stroke: "var(--rule)",
+          }),
+        );
+      if (h?.lastNightAvg != null) {
+        const out = h.balancedLow != null && h.lastNightAvg < h.balancedLow;
+        s.append(
+          svg("circle", {
+            cx: x(i),
+            cy: yH(h.lastNightAvg),
+            r: 4.5,
+            fill: out ? "var(--alert-mark)" : "var(--trend)",
+          }),
+        );
+        s.append(
+          svg(
+            "text",
+            {
+              x: x(i) + bw / 2 + 4,
+              y: yH(h.lastNightAvg),
+              dy: "0.32em",
+              "font-family": "var(--mono)",
+              "font-size": 10,
+              fill: "var(--muted)",
+            },
+            h.lastNightAvg,
+          ),
+        );
+      }
+      if (sl) {
+        s.append(
+          svg("rect", {
+            x: x(i) - bw / 2,
+            width: bw,
+            y: yS(sl.hours),
+            height: sTop + hSleep - yS(sl.hours),
+            rx: 2,
+            fill: sl.hours < 7 ? "var(--rule)" : "var(--trend-soft)",
+          }),
+        );
+      }
+      s.append(
+        svg(
+          "text",
+          {
+            x: x(i),
+            y: H - 24,
+            "text-anchor": "middle",
+            "font-family": "var(--mono)",
+            "font-size": 10,
+            "font-weight": i === 6 ? 600 : 400,
+            fill: i === 6 ? "var(--text)" : "var(--faint)",
+          },
+          fmt.weekday(day),
+        ),
+      );
+      s.append(
+        svg(
+          "text",
+          {
+            x: x(i),
+            y: H - 8,
+            "text-anchor": "middle",
+            "font-family": "var(--mono)",
+            "font-size": 9,
+            "font-weight": 600,
+            fill: "var(--faint)",
+          },
+          r ? `${r.resting} bpm` : "—",
+        ),
+      );
+    });
+    const hit = svg("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" });
+    hit.addEventListener("pointermove", (ev) => {
+      const rc = s.getBoundingClientRect();
+      const i = Math.max(
+        0,
+        Math.min(6, Math.floor(((ev.clientX - rc.left) * (W / rc.width)) / colW)),
+      );
+      const day = days[i],
+        h = hrvBy.get(day),
+        sl = sleepBy.get(day),
+        r = restBy.get(day);
+      const lines = [
+        h ? `HRV ${h.lastNightAvg} ms (band ${h.balancedLow}–${h.balancedUpper})` : "no HRV",
+        sl
+          ? `sleep ${fmt.one(sl.hours)} h${sl.score != null ? `, score ${sl.score}` : ""}`
+          : "no sleep",
+        r ? `resting ${r.resting} bpm` : "no resting HR",
+      ];
+      tipEl.replaceChildren(
+        el("span", {}, `${fmt.weekday(day)} ${fmt.short(day)}`),
+        ...lines.flatMap((l, k) => (k ? [el("br"), l] : [l])),
+      );
+      tipEl.hidden = false;
+      const px = x(i) * (rc.width / W),
+        tw = tipEl.offsetWidth;
+      tipEl.style.left = `${Math.min(Math.max(0, px - tw / 2), rc.width - tw)}px`;
+      tipEl.style.top = "0px";
+    });
+    hit.addEventListener("pointerleave", () => {
+      tipEl.hidden = true;
+    });
+    s.append(hit);
+    box.append(s, tipEl);
+  };
+  drawNights();
+  let nw = box.clientWidth;
+  new ResizeObserver(() => {
+    if (box.clientWidth !== nw) {
+      nw = box.clientWidth;
+      drawNights();
+    }
+  }).observe(box);
+</script>

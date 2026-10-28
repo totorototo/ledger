@@ -10,7 +10,7 @@ export default defineConfig({
     env: { TZ: "UTC" },
     globals: true,
     setupFiles: ["./src/setupTests.js"],
-    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.js"],
+    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.js", "scripts/**/*.test.js"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

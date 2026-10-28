@@ -1,0 +1,210 @@
+<title>Load Check</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow">Load check · last 7 days</p>
+    <h1 class="title" id="verdict" data-f="notes.verdict">—</h1>
+    <p class="lede" data-f="notes.takeaway">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band split">
+    <div class="stack">
+      <h2 class="section-title">Now</h2>
+      <ul class="flags" id="now"></ul>
+      <div id="earlier-block" class="stack" hidden>
+        <h2 class="section-title">Earlier</h2>
+        <ul class="flags earlier" id="earlier"></ul>
+      </div>
+      <div class="callout">
+        <span class="eyebrow">What to do with it</span>
+        <p data-f="notes.action">—</p>
+      </div>
+    </div>
+    <div class="stack">
+      <div>
+        <h2 class="section-title ledger-title">The last 7 days</h2>
+        <dl class="ledger">
+          <div>
+            <dt>7-day load</dt>
+            <dd data-f="now.acute">—</dd>
+          </div>
+          <div>
+            <dt>28-day / week</dt>
+            <dd data-f="now.chronic">—</dd>
+          </div>
+          <div>
+            <dt>Easy time</dt>
+            <dd id="easy">—</dd>
+          </div>
+          <div>
+            <dt>Next race</dt>
+            <dd id="race">—</dd>
+          </div>
+        </dl>
+        <p class="note" id="coverage"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="chart-head">
+      <h2 class="section-title">Load ratio, last 8 weeks</h2>
+      <div class="readout">
+        <span><strong data-f="now.ratio" data-fmt="two">—</strong> now</span
+        ><span class="soft">steady <strong>0.8–1.3</strong></span>
+      </div>
+    </div>
+    <div class="plot" id="plot"></div>
+    <p class="note">
+      7-day load against the 28-day load per week, at each week's end. The shaded band is the usual
+      steady range; above the dashed line, load rose much faster than the body has adapted (Gabbett
+      2016).
+    </p>
+  </section>
+
+  <section class="band">
+    <h2 class="section-title">Week by week</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>km</th>
+            <th>h</th>
+            <th>Load</th>
+            <th>Ratio</th>
+            <th>Δ km</th>
+            <th>Easy %</th>
+            <th>HRV under</th>
+            <th>Sleep &lt; 7 h</th>
+            <th class="text">Notes</th>
+          </tr>
+        </thead>
+        <tbody id="weeks"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  const TONE = { Steady: "ok", Watch: "watch", "Overreaching risk": "alert" };
+  const tone = TONE[R.notes.verdict];
+  if (tone) document.getElementById("verdict").dataset.tone = tone;
+
+  const { hrv, restingHr, sleep, now } = R;
+  document.getElementById("stats").append(
+    stat({
+      label: "Load ratio",
+      value: fmt.two(now.ratio),
+      sub: `7-day ${now.acute} / 28-day ${now.chronic}`,
+      anchor: true,
+    }),
+    stat({
+      label: "HRV",
+      value: hrv ? fmt.int(hrv.average) : "—",
+      unit: hrv ? "ms" : null,
+      sub: hrv ? `${hrv.belowBand} under · ${hrv.aboveBand} over band` : "no reading",
+    }),
+    stat({
+      label: "Resting HR",
+      value: restingHr ? fmt.int(restingHr.average) : "—",
+      unit: restingHr ? "bpm" : null,
+      sub: restingHr
+        ? `baseline ${show(restingHr.baseline)} · ${show(restingHr.raised)} raised`
+        : "no reading",
+    }),
+    stat({
+      label: "Sleep",
+      value: sleep ? fmt.one(sleep.averageHours) : "—",
+      unit: sleep ? "h" : null,
+      sub: sleep
+        ? `${sleep.under7h} night${sleep.under7h === 1 ? "" : "s"} under 7 h`
+        : "no reading",
+    }),
+  );
+
+  const flags = (list, id) =>
+    document
+      .getElementById(id)
+      .append(...list.map((f) => el("li", {}, el("b", {}, f.flag), el("span", {}, f.text))));
+  if (R.notes.now.length) flags(R.notes.now, "now");
+  else
+    document
+      .getElementById("now")
+      .append(
+        el(
+          "li",
+          { className: "none" },
+          el("b", {}, "No flags"),
+          el("span", {}, "Nothing in the last two weeks crosses a rule."),
+        ),
+      );
+  if (R.notes.earlier.length) {
+    flags(R.notes.earlier, "earlier");
+    document.getElementById("earlier-block").hidden = false;
+  }
+
+  document.getElementById("easy").textContent =
+    R.intensity.easyPct == null ? "—" : `${R.intensity.easyPct}%`;
+  document.getElementById("race").textContent = R.nextRace
+    ? `${R.nextRace.text} · ${R.nextRace.daysTo} d`
+    : "none planned";
+  document.getElementById("coverage").textContent =
+    `${R.coverage.withLoad} of ${R.coverage.kept} activities carry Garmin's load; the rest count as none.`;
+
+  const weekLabel = (w, i) => {
+    const [, m, d] = parts(w.week);
+    return {
+      text: String(d),
+      sub: i === 0 || d <= 7 ? MONTHS[m - 1] : null,
+      strong: i === R.weeks.length - 1,
+    };
+  };
+  lineChart(document.getElementById("plot"), {
+    labels: R.weeks.map(weekLabel),
+    series: [{ values: R.weeks.map((w) => w.ratio) }],
+    step: 0.25,
+    bands: [{ from: 0.8, to: 1.3 }],
+    refs: [{ value: 1.5, label: "1.5" }],
+    format: (v) => v.toFixed(2).replace(/0$/, ""),
+    tip: (i) => {
+      const w = R.weeks[i];
+      return [
+        `Week of ${fmt.short(w.week)}${w.partial ? " (so far)" : ""}`,
+        `ratio ${show(w.ratio, "two")}`,
+        `${show(w.km, "one")} km · load ${show(w.load)}`,
+      ];
+    },
+  });
+
+  document.getElementById("weeks").append(
+    ...R.weeks.map((w) => {
+      const ratioClass = w.ratio > 1.5 ? "alert" : w.ratio > 1.3 ? "hi" : "";
+      return el(
+        "tr",
+        { className: w.partial ? "partial" : "" },
+        el("td", {}, `${fmt.short(w.week)}${w.partial ? " (so far)" : ""}`),
+        el("td", {}, show(w.km, "one")),
+        el("td", {}, show(w.hours, "one")),
+        el("td", {}, show(w.load)),
+        el("td", { className: ratioClass }, show(w.ratio, "two")),
+        el("td", {}, show(w.kmChange)),
+        el("td", {}, show(w.easyPct)),
+        el("td", { className: w.hrvBelow >= 3 ? "alert" : "" }, show(w.hrvBelow)),
+        el("td", { className: w.sleepUnder7h >= 3 ? "hi" : "" }, show(w.sleepUnder7h)),
+        el("td", { className: "text" }, w.notes.join(" · ") || ""),
+      );
+    }),
+  );
+</script>

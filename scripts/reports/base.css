@@ -1,0 +1,517 @@
+/* Trail Suite, as Ledger wears it: mono voice for titles, numbers and labels; system sans for
+   running text; ledger rows on 10% hairlines; violet for anything that evolves over time.
+   Every report: masthead, hero (eyebrow, title, lede, stat row), bands split by hairlines,
+   footer. Values from @totorototo/trail-tokens and src/components/stats/Stats.style.js. */
+:root {
+  --bg: #c4c4c4;
+  --surface: #ebe7e2;
+  --text: #363537;
+  --muted: rgba(54, 53, 55, 0.88);
+  --faint: rgba(54, 53, 55, 0.82);
+  --hairline: rgba(54, 53, 55, 0.1);
+  --rule: rgba(54, 53, 55, 0.22);
+  --primary: #6a7fdb;
+  --primary-text: #2a3aa5;
+  --ok: #2c563d;
+  --alert: #971143;
+  --alert-mark: #d01d58;
+  --trend-soft: #7973ca;
+  --trend: #5644b4;
+  --trend-strong: #352180;
+  --mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --gutter: clamp(1.25rem, 6vw, 4rem);
+  --stat-gap: clamp(1.5rem, 5vw, 3.5rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #3a3335;
+    --surface: #3d3b3b;
+    --text: #d8dbe2;
+    --muted: rgba(216, 219, 226, 0.75);
+    --faint: rgba(216, 219, 226, 0.7);
+    --hairline: rgba(216, 219, 226, 0.1);
+    --rule: rgba(216, 219, 226, 0.2);
+    --primary: #f2af29;
+    --primary-text: #f2af29;
+    --ok: #22c55e;
+    --alert: #f382a4;
+    --alert-mark: #e64b7e;
+    --trend-soft: #635dab;
+    --trend: #8b85de;
+    --trend-strong: #b7b6f6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #3a3335;
+  --surface: #3d3b3b;
+  --text: #d8dbe2;
+  --muted: rgba(216, 219, 226, 0.75);
+  --faint: rgba(216, 219, 226, 0.7);
+  --hairline: rgba(216, 219, 226, 0.1);
+  --rule: rgba(216, 219, 226, 0.2);
+  --primary: #f2af29;
+  --primary-text: #f2af29;
+  --ok: #22c55e;
+  --alert: #f382a4;
+  --alert-mark: #e64b7e;
+  --trend-soft: #635dab;
+  --trend: #8b85de;
+  --trend-strong: #b7b6f6;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  max-width: 64rem;
+  margin-inline: auto;
+  padding-block: 1.5rem 3rem;
+  padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+.note {
+  margin: 0.5rem 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--faint);
+  max-width: 70ch;
+}
+
+/* Masthead: the wordmark, first half muted, as Retrace's. */
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.wordmark {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.wordmark span {
+  color: var(--muted);
+}
+
+/* Hero: eyebrow, mono title, lede, then a stat row. */
+.hero {
+  padding-block: clamp(3rem, 10vh, 5rem) clamp(2.5rem, 7vh, 4rem);
+  display: grid;
+  gap: 0.75rem;
+}
+.title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-wrap: balance;
+}
+.title[data-tone="ok"] {
+  color: var(--ok);
+}
+.title[data-tone="watch"] {
+  color: var(--primary-text);
+}
+.title[data-tone="alert"] {
+  color: var(--alert);
+}
+.lede {
+  margin: 0.75rem 0 0;
+  max-width: 38ch;
+  font-size: clamp(1.0625rem, 2.2vw, 1.25rem);
+  line-height: 1.45;
+  color: var(--faint);
+  text-wrap: pretty;
+}
+
+.stats {
+  margin: clamp(2rem, 6vh, 3rem) 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem var(--stat-gap);
+}
+@media (min-width: 40em) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.stat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.stat dt {
+  order: 2;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat dd {
+  margin: 0;
+}
+.stat .value {
+  order: 1;
+  font-family: var(--mono);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stat .value small {
+  font-size: 0.5em;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-left: 0.25em;
+}
+.stat.anchor .value {
+  color: var(--primary-text);
+}
+.stat .sub {
+  order: 3;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.stat .why {
+  order: 5;
+  margin: 0.25rem 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--faint);
+  text-wrap: pretty;
+}
+
+/* Bands, split by hairlines; a reading column beside a ledger column from 52em. */
+.band {
+  padding-block: clamp(2.5rem, 7vh, 4rem);
+  border-top: 1px solid var(--hairline);
+}
+.split {
+  display: grid;
+  gap: 2.5rem var(--stat-gap);
+}
+@media (min-width: 52em) {
+  .split {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+.stack {
+  display: grid;
+  gap: 1.5rem;
+  align-content: start;
+  min-width: 0;
+}
+.prose {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+}
+.prose li {
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+ol.prose {
+  counter-reset: item;
+}
+ol.prose li {
+  counter-increment: item;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+}
+ol.prose li::before {
+  content: counter(item, decimal-leading-zero);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding-top: 0.15em;
+}
+.callout {
+  padding: 1rem 1.25rem;
+  background: color-mix(in srgb, var(--surface) 35%, transparent);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.25rem;
+  max-width: 60ch;
+}
+.callout p {
+  margin: 0;
+}
+
+/* Flags: the name in mono, what it says beside it. */
+.flags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flags li {
+  display: grid;
+  gap: 0.25rem 1.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.flags li:first-child {
+  border-top: 1px solid var(--hairline);
+}
+@media (min-width: 40em) {
+  .flags li {
+    grid-template-columns: 12rem 1fr;
+  }
+}
+.flags b {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.flags b::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--primary);
+  vertical-align: 0.05em;
+}
+.flags.earlier b::before {
+  background: var(--rule);
+}
+.flags span {
+  color: var(--text);
+  text-wrap: pretty;
+}
+.flags .none b::before {
+  background: var(--ok);
+}
+
+/* Ledger rows: label at the start, value at the end, a 10% rule between. */
+.ledger {
+  margin: 0;
+}
+.ledger div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.ledger dt {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ledger dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ledger-title {
+  margin: 0 0 0.25rem;
+}
+
+/* Charts: a title and a readout, the plot, labels under it. */
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.readout strong {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+.readout .soft strong {
+  color: var(--muted);
+}
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.key i {
+  width: 1rem;
+  height: 0;
+  border-top: 2px solid var(--trend);
+}
+.key i.dash {
+  border-top-style: dashed;
+  border-color: var(--trend-soft);
+}
+.plot {
+  position: relative;
+}
+.plot svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.tip {
+  position: absolute;
+  pointer-events: none;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tip span {
+  display: block;
+  color: var(--muted);
+}
+
+/* Tables as the Year page sets them. */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: right;
+  white-space: nowrap;
+}
+th + th,
+td + td {
+  padding-left: 0.75rem;
+}
+th:first-child,
+td:first-child,
+.text {
+  text-align: left;
+}
+thead th {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+tbody td:first-child {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+td.text {
+  color: var(--faint);
+}
+td.gap {
+  color: var(--rule);
+}
+td.hi {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+td.alert {
+  color: var(--alert);
+  font-weight: 600;
+}
+tr.partial td {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.foot {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+.foot p {
+  margin: 0;
+  max-width: 70ch;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .line {
+    stroke-dasharray: var(--len);
+    stroke-dashoffset: var(--len);
+    animation: draw 0.4s ease forwards;
+  }
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}

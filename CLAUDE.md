@@ -93,6 +93,19 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   them; they never compute one. A number a skill needs and doesn't find goes into
   `insights`, with a test.
 
+## Reports
+
+- Each skill ends by publishing its reading as a page: it writes only words to
+  `data/reports/<skill>.notes.json`, and `npm run report -- <skill>` (`scripts/report.mjs`,
+  pure picking in `scripts/reports/build.js`) takes the numbers from `metrics.json` itself and
+  fills `scripts/reports/<skill>.html`. A note the builder can't read fails the build by name.
+- The pages are Ledger in Trail Suite's voice (`scripts/reports/base.css`): mono titles,
+  numbers and labels, ledger rows on 10% hairlines, violet for trends, the theme's own grounds
+  (light #c4c4c4). No cards, pills or gradients.
+- `data/reports/` (gitignored) holds the pages and `links.json`, each page's claude.ai link:
+  a run updates its page in place. Publishing uploads the account's data to claude.ai, private
+  until the runner shares it.
+
 ## Tests
 
 - Unit tests never reach Garmin: the client and the middleware both take a `fetch`, the store

@@ -127,3 +127,32 @@ Next race: <text> in <daysTo> days (only with a plan)
 
 End with: _Based on Garmin's activity and wellness summaries; a warning light, not a diagnosis, and not
 medical advice._
+
+## 6. Publish the page
+
+After the write-up, the same reading as a page in Ledger's style (`scripts/reports/load-check.html`).
+The page takes its numbers from `metrics.json` itself: you write only words.
+
+1. Write `data/reports/load-check.notes.json` (shape below). Text may quote numbers from
+   `metrics.json`, as the write-up does; never one of your own.
+2. Run `npm run report -- load-check`. It checks the notes, writes `data/reports/load-check.html`
+   and prints the page's link, if it has one. On an error, fix the notes it names and run it
+   again.
+3. Publish `data/reports/load-check.html` with the Artifact tool. With a link: read that
+   artifact first, then publish with it as `url`, so the page updates in place. Without one:
+   publish it new (icon `chart`), then record its link with
+   `npm run report -- load-check --url <link>`.
+4. End the reply with the link. The page uploads the account's data to claude.ai, private
+   until the runner shares it: never share it yourself.
+
+```json
+{
+  "verdict": "Steady | Lighter | Watch | Overreaching risk",
+  "takeaway": "one sentence: the verdict and why",
+  "now": [{ "flag": "Load spike", "text": "week, numbers, why it matters" }],
+  "earlier": [{ "flag": "…", "text": "…, and how it leads to now" }],
+  "action": "the What to do with it sentence"
+}
+```
+
+`now` empty shows "No flags".

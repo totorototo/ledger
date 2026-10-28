@@ -1,0 +1,183 @@
+<title>Aerobic Progress</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow">Aerobic progress · easy-run efficiency</p>
+    <h1 class="title" data-f="notes.headline">—</h1>
+    <p class="lede" data-f="notes.takeaway">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band">
+    <div class="chart-head">
+      <h2 class="section-title">Efficiency by month</h2>
+      <div class="readout">
+        <span class="key"><i></i>last 12 months</span>
+        <span class="key"><i class="dash"></i>a year earlier</span>
+      </div>
+    </div>
+    <div class="plot" id="plot"></div>
+    <p class="note">
+      Metres per minute (grade adjusted) per heartbeat, median of the month's easy runs; higher is
+      better. A month under 3 easy runs has no value.
+    </p>
+  </section>
+
+  <section class="band split">
+    <div class="stack">
+      <h2 class="section-title">Trend</h2>
+      <ul class="prose" id="trend"></ul>
+      <div class="callout" id="worth" hidden>
+        <span class="eyebrow">Worth trying</span>
+        <p data-f="notes.worthTrying">—</p>
+      </div>
+    </div>
+    <div class="stack">
+      <div>
+        <h2 class="section-title ledger-title">What it rests on</h2>
+        <dl class="ledger">
+          <div>
+            <dt>Easy means</dt>
+            <dd id="easy-bound">—</dd>
+          </div>
+          <div>
+            <dt>Runs with zones</dt>
+            <dd>
+              <span data-f="coverage.runsWithZones">—</span> of
+              <span data-f="coverage.runs">—</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Months shown</dt>
+            <dd id="span">—</dd>
+          </div>
+        </dl>
+        <p class="note">
+          Each run was classed easy with the zones of its day; Garmin keeps no history of them.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <h2 class="section-title">Month by month</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Efficiency</th>
+            <th>Easy runs</th>
+            <th>Run km</th>
+            <th>Easy %</th>
+            <th>Cadence</th>
+            <th>Power</th>
+            <th>HRV</th>
+            <th>Resting HR</th>
+          </tr>
+        </thead>
+        <tbody id="months"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  const L = R.latest,
+    Y = R.sameMonthLastYear;
+  const lastM = R.months.at(-1),
+    prevM = R.lastYear.at(-1);
+  document.getElementById("stats").append(
+    stat({
+      label: "Efficiency",
+      value: L ? fmt.two(L.efficiency) : "—",
+      sub: L ? `${fmt.month(L.month)} · ${L.easyRuns} easy runs` : "no month with 3 easy runs",
+      anchor: true,
+    }),
+    stat({
+      label: "A year earlier",
+      value: Y?.efficiency != null ? fmt.two(Y.efficiency) : "—",
+      sub: Y ? `${fmt.month(Y.month)} · ${Y.easyRuns} easy runs` : "no data",
+    }),
+    stat({
+      label: "Resting HR",
+      value: show(lastM?.restingHr),
+      unit: lastM?.restingHr != null ? "bpm" : null,
+      sub: `${fmt.month(lastM.month)} · ${prevM?.restingHr != null ? `${prevM.restingHr} a year earlier` : "none a year earlier"}`,
+    }),
+    stat({
+      label: "HRV",
+      value: show(lastM?.hrv),
+      unit: lastM?.hrv != null ? "ms" : null,
+      sub: `${fmt.month(lastM.month)} · ${prevM?.hrv != null ? `${prevM.hrv} a year earlier` : "none a year earlier"}`,
+    }),
+  );
+
+  document.getElementById("trend").append(...R.notes.trend.map((t) => el("li", {}, t)));
+  if (R.notes.worthTrying) document.getElementById("worth").hidden = false;
+  document.getElementById("easy-bound").textContent = R.zones
+    ? `under ${R.zones.floors[2]} bpm today`
+    : "—";
+  document.getElementById("span").textContent =
+    `${fmt.month(R.months[0].month)} – ${fmt.month(lastM.month)}`;
+
+  lineChart(document.getElementById("plot"), {
+    labels: monthLabels(R.months.map((m) => m.month)),
+    series: [
+      { values: R.lastYear.map((m) => m.efficiency), color: "var(--trend-soft)", dashed: true },
+      { values: R.months.map((m) => m.efficiency) },
+    ],
+    step: 0.05,
+    format: (v) => v.toFixed(2),
+    tip: (i) => {
+      const m = R.months[i],
+        p = R.lastYear[i];
+      const line = (q) =>
+        q?.efficiency != null ? `${fmt.two(q.efficiency)} (${q.easyRuns} easy)` : "—";
+      return [
+        fmt.month(m.month),
+        `now ${line(m)}`,
+        `${p ? fmt.month(p.month) : "year before"} ${line(p)}`,
+      ];
+    },
+  });
+
+  document.getElementById("months").append(
+    ...[...R.months].reverse().map((m) =>
+      el(
+        "tr",
+        {},
+        el("td", {}, fmt.month(m.month)),
+        el(
+          "td",
+          {
+            className:
+              m.efficiency == null
+                ? "gap"
+                : m === R.months.find((q) => q.month === L?.month)
+                  ? "hi"
+                  : "",
+          },
+          show(m.efficiency, "two"),
+        ),
+        el("td", {}, show(m.easyRuns)),
+        el("td", {}, show(m.runKm, "one")),
+        el("td", {}, show(m.easyPct)),
+        el("td", {}, show(m.cadence)),
+        el("td", {}, show(m.power)),
+        el("td", {}, show(m.hrv)),
+        el("td", {}, show(m.restingHr)),
+      ),
+    ),
+  );
+</script>

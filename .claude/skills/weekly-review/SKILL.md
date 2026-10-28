@@ -94,3 +94,31 @@ Notes: <notes> · Next race: <text> in <daysTo> days (only with a plan)
 
 Then one line of caveats when they apply: activities without load or heart rate, screened
 faults. End with: _Based on Garmin's activity and wellness summaries; not medical advice._
+
+## 5. Publish the page
+
+After the write-up, the same reading as a page in Ledger's style (`scripts/reports/weekly-review.html`).
+The page takes its numbers from `metrics.json` itself: you write only words.
+
+1. Write `data/reports/weekly-review.notes.json` (shape below). Text may quote numbers from
+   `metrics.json`, as the write-up does; never one of your own.
+2. Run `npm run report -- weekly-review`. It checks the notes, writes `data/reports/weekly-review.html`
+   and prints the page's link, if it has one. On an error, fix the notes it names and run it
+   again.
+3. Publish `data/reports/weekly-review.html` with the Artifact tool. With a link: read that
+   artifact first, then publish with it as `url`, so the page updates in place. Without one:
+   publish it new (icon `chart`), then record its link with
+   `npm run report -- weekly-review --url <link>`.
+4. End the reply with the link. The page uploads the account's data to claude.ai, private
+   until the runner shares it: never share it yourself.
+
+```json
+{
+  "takeaway": "one sentence: how the week went",
+  "standouts": [
+    { "date": "YYYY-MM-DD", "name": "the session's name", "text": "why it stands out" }
+  ],
+  "takeaways": ["one or two, about the coming week"],
+  "caveat": "the caveats line, or null"
+}
+```
