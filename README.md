@@ -69,10 +69,10 @@ browser ──/api/garmin/*──▶ Vite dev server ──Bearer token──▶
 
 ## Insights with Claude Code
 
-`npm run export` reads your whole history and nightly HRV with the key in `.env` and writes
-three files to `data/` (gitignored): `activities.json`, the history, `hrv.json`, each night's
-HRV, and `metrics.json`, the weekly, monthly and yearly sums the app shows plus HRV
-(`src/utils/insights.js`). The skills in `.claude/skills/` read
+`npm run export` reads your whole history, nightly HRV, resting heart rate, sleep and running
+zones with the key in `.env` and writes three files to `data/` (gitignored):
+`activities.json`, the history, `wellness.json`, the daily readings, and `metrics.json`, the
+weekly, monthly and yearly sums the app shows plus the readings' (`src/utils/insights.js`). The skills in `.claude/skills/` read
 `metrics.json` and only interpret it; they never compute their own numbers:
 
 | Skill              | Ask it                                                   |

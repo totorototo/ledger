@@ -30,9 +30,15 @@ yourself**: quote it, or say it isn't there. Your job is to interpret.
 | `cadence`        | median steps per minute over **every** run of the month (not only easy ones)                                                                             |
 | `power`          | median average power (W) over every run with power; `runsWithPower` says how many                                                                        |
 | `hrv`            | the month's nights: `average` (ms), `belowBand` / `aboveBand` against the runner's own band; null with no reading                                        |
+| `restingHr`      | the month's `average` resting heart rate (bpm); null with no reading                                                                                     |
+| `sleep`          | the month's `averageHours` and `under7h` nights; null with no reading                                                                                    |
 
 Also `coverage.runsWithHR` and `coverage.runsWithZones` against `coverage.runs`: runs without
 zones can't be classed as easy, so they never count.
+
+`zones` is the running zones as set **now** (`floors`: each zone's lowest bpm, `maxHR`,
+`method`): "easy" is under `floors[2]` bpm today. Garmin keeps no history of them, and each
+run was classed with the zones of its day.
 
 ## 3. Interpret
 
@@ -54,6 +60,11 @@ zones can't be classed as easy, so they never count.
   cadence (and power) sits far under road running's. A month of a few long trail runs (high
   `runKm` over few `runs`) isn't comparable with a road month: say so rather than call it a
   drop.
+- **Zones:** if the runner says their max HR or zones changed, months before the change
+  were classed as easy against other bounds: name the change before comparing across it.
+- **Resting HR over months:** a slow fall in the monthly `average` is a classic sign of
+  aerobic fitness; month-to-month moves of 1–2 bpm are noise. It starts at
+  `coverage.restingHrFirst`. A month of short sleep (`under7h` high) can hold it up.
 - **HRV over months:** a monthly `average` rising with fewer nights under band is the
   recovery side of getting fitter; it starts at `coverage.hrvFirst`.
 - **Context:** set efficiency next to `runKm`. A rise after a block of steady volume is the
@@ -67,8 +78,8 @@ zones can't be classed as easy, so they never count.
 Latest: <efficiency> m/min per beat in <month> (<easyRuns> easy runs)
 Same month last year: <efficiency or "no data"> → <better / worse / about the same>
 
-| Month | Efficiency | Easy runs | Run km | Cadence | Power | HRV |
-|-------|------------|-----------|--------|---------|-------|-----|
+| Month | Efficiency | Easy runs | Run km | Cadence | Power | HRV | Resting HR |
+|-------|------------|-----------|--------|---------|-------|-----|------------|
 (last 12 months, gaps shown as —)
 
 **Trend**
@@ -77,5 +88,5 @@ Same month last year: <efficiency or "no data"> → <better / worse / about the 
 **Worth trying** (optional, one line)
 ```
 
-End with: _Based on Garmin's activity summaries; heat, terrain and sensor accuracy move these
+End with: _Based on Garmin's activity and wellness summaries; heat, terrain and sensor accuracy move these
 numbers; not medical advice._

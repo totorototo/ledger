@@ -1,5 +1,13 @@
 import { activity } from "../test/fixtures.js";
-import { effects, hrvSummary, insights, session, volume } from "./insights.js";
+import {
+  effects,
+  hrvSummary,
+  insights,
+  restingSummary,
+  session,
+  sleepSummary,
+  volume,
+} from "./insights.js";
 
 // An easy 10 km run on `day`: 90% of its heart-rate time in Z1–Z2.
 const easyRun = (id, day, overrides = {}) =>
@@ -81,6 +89,55 @@ describe("effects", () => {
       TEMPO: 2,
       RECOVERY: 1,
     });
+  });
+});
+
+// `count` days of resting heart rate from `from`, each `value(i)`.
+const restingDays = (from, count, value) =>
+  Array.from({ length: count }, (_, i) => ({
+    date: new Date(Date.parse(from) + i * 864e5).toISOString().slice(0, 10),
+    resting: value(i),
+  }));
+
+describe("restingSummary", () => {
+  it("counts the days 5 bpm or more over the median of the 28 days before", () => {
+    const all = [
+      ...restingDays("2026-09-21", 28, (i) => (i % 2 ? 50 : 52)),
+      ...restingDays("2026-10-19", 7, (i) => [51, 56, 57, 60, 52, 50, 51][i]),
+    ];
+    expect(restingSummary(all, "2026-10-19", "2026-10-25")).toEqual({
+      days: 7,
+      average: 54,
+      baseline: 51,
+      raised: 3,
+    });
+  });
+
+  it("has no baseline under 14 days before, and is null with no day", () => {
+    const all = restingDays("2026-10-12", 14, () => 50);
+    expect(restingSummary(all, "2026-10-19", "2026-10-25")).toMatchObject({
+      days: 7,
+      baseline: null,
+      raised: null,
+    });
+    expect(restingSummary(all, "2026-11-01", "2026-11-07")).toBeNull();
+  });
+});
+
+describe("sleepSummary", () => {
+  it("averages length and score, and counts the nights under 7 h", () => {
+    const nights = [
+      { date: "2026-10-19", hours: 6.5, score: 60 },
+      { date: "2026-10-20", hours: 8, score: 85 },
+      { date: "2026-10-21", hours: 6.9, score: null },
+    ];
+    expect(sleepSummary(nights)).toEqual({
+      nights: 3,
+      averageHours: 7.1,
+      averageScore: 73,
+      under7h: 2,
+    });
+    expect(sleepSummary([])).toBeNull();
   });
 });
 
@@ -229,5 +286,29 @@ describe("insights", () => {
       aerobicTE: 2.8,
     });
     expect(coverage).toMatchObject({ runsWithPower: 9, withEffect: 15 });
+  });
+
+  it("adds resting heart rate, sleep and the zones, when given", () => {
+    const restingHr = restingDays("2026-09-21", 35, (i) => (i >= 32 ? 60 : 50));
+    const sleep = [{ date: "2026-10-24", hours: 6, score: 55 }];
+    const zones = { sport: "RUNNING", floors: [94, 113, 152, 162, 169] };
+    const result = insights(history, "2026-10-25", { restingHr, sleep, zones });
+    expect(result.weeks.at(-1)).toMatchObject({
+      restingHr: { days: 7, baseline: 50, raised: 3 },
+      sleep: { nights: 1, under7h: 1 },
+    });
+    expect(result.lastWeek.restingHr.days).toHaveLength(7);
+    expect(result.lastWeek.sleep.days).toEqual(sleep);
+    expect(result.months[1].restingHr).toMatchObject({ days: 25 });
+    expect(result.zones).toBe(zones);
+    expect(result.coverage).toMatchObject({
+      restingHrDays: 35,
+      restingHrFirst: "2026-09-21",
+      sleepNights: 1,
+      sleepFirst: "2026-10-24",
+    });
+    // Without them, null rather than zero.
+    const bare = insights(history, "2026-10-25");
+    expect(bare.lastWeek).toMatchObject({ restingHr: null, sleep: null });
   });
 });

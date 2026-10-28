@@ -31,6 +31,8 @@ All under `lastWeek` (the 7 days `from`–`until`, every sport, Garmin's faults 
 | `sessions[]`            | `date`, `name`, `type`, `km`, `hours`, `climbM`, `averageHR`, `load`, `easy` (≥ 80% of HR time in Z1–2), `effect` (Garmin's label: `TEMPO`, `RECOVERY`…), `aerobicTE` / `anaerobicTE` (0–5)       |
 | `effects`               | sessions per `effect` label                                                                                                                                                                       |
 | `hrv`                   | `nights`, `average` (ms), `belowBand` / `aboveBand` against the runner's own balanced band, and `days[]` (`date`, `lastNightAvg`, `status`, `balancedLow`, `balancedUpper`); null with no reading |
+| `restingHr`             | `average` (bpm), `baseline` (median of the 28 days before), `raised` (days ≥ 5 bpm over it), `days[]` (`date`, `resting`); null with no reading                                                   |
+| `sleep`                 | `averageHours`, `averageScore` (Garmin's 0–100), `under7h`, `days[]` (`date`, `hours`, `score`); null with no reading                                                                             |
 
 Also check `coverage` (how many activities carry load or heart rate) and `faults` dated in
 the week: mention them if they change the picture.
@@ -48,6 +50,10 @@ the week: mention them if they change the picture.
 - **HRV:** nights in the band mean the week was absorbed; three or more under it, with a
   heavier week, mean it wasn't yet (Plews et al., _Sports Med_ 2013). Under band on a light
   week points away from training (illness, stress, sleep): say that, don't guess which.
+- **Resting HR and sleep:** supporting signs. `raised` days beside HRV under band firm up
+  "not absorbed yet"; nights under 7 h beside HRV under band on a light week point to sleep
+  (Hirshkowitz et al., _Sleep Health_ 2015). Resting HR alone is a weak signal (Buchheit,
+  _Front Physiol_ 2014): never a verdict by itself.
 - **Session labels:** set `effects` beside the intensity split. A week of mostly `TEMPO` or
   `THRESHOLD` labels is the grey zone by another name; `RECOVERY` and `AEROBIC_BASE` are the
   easy end.
@@ -67,6 +73,7 @@ Load ratio <ratio> (7-day <acute> / 28-day <chronic> per week)
 Intensity: <easyPct>% easy · <moderatePct>% moderate · <hardPct>% hard
 Sessions: <effects, as "2 tempo · 1 recovery">
 HRV: <average> ms, <belowBand> nights under / <aboveBand> over band (or "no reading")
+Resting HR <average> bpm (baseline <baseline>) · Sleep <averageHours> h, score <averageScore>
 
 **Stand-out sessions**
 - <date> <name> (<effect>): <why it stands out, with its numbers>
@@ -76,4 +83,4 @@ HRV: <average> ms, <belowBand> nights under / <aboveBand> over band (or "no read
 ```
 
 Then one line of caveats when they apply: activities without load or heart rate, screened
-faults. End with: _Based on Garmin's activity summaries; not medical advice._
+faults. End with: _Based on Garmin's activity and wellness summaries; not medical advice._

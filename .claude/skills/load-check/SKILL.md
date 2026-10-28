@@ -19,7 +19,8 @@ it isn't there. Your job is to interpret.
 ## 2. Read
 
 The last 8 entries of `weeks[]` (Monday-start weeks, the last one ends at `until` and may be
-partial), plus `lastWeek.load` and `lastWeek.hrv` for the rolling 7 days to today:
+partial), plus `lastWeek.load`, `lastWeek.hrv`, `lastWeek.restingHr` and `lastWeek.sleep` for
+the rolling 7 days to today:
 
 | Field                                    | Meaning                                                                                                                                             |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -31,10 +32,13 @@ partial), plus `lastWeek.load` and `lastWeek.hrv` for the rolling 7 days to toda
 | `partial`                                | true when the week ends after `until`: its totals are of the days so far                                                                            |
 | `hrv`                                    | `nights`, `average` (ms), `belowBand` / `aboveBand`: nights outside the balanced band of the runner's own baseline (Garmin's); null with no reading |
 | `effects`                                | sessions per Garmin training-effect label (`TEMPO`, `RECOVERY`…)                                                                                    |
+| `restingHr`                              | `days`, `average` (bpm), `baseline` (median of the 28 days before), `raised`: days ≥ 5 bpm over it; null with no reading                            |
+| `sleep`                                  | `nights`, `averageHours`, `averageScore` (Garmin's 0–100), `under7h`: nights under 7 h; null with no reading                                        |
 
 `lastWeek.hrv.days[]` has each night: `date`, `lastNightAvg`, `status` (Garmin's: `BALANCED`,
 `UNBALANCED`, `LOW`…), `balancedLow`, `balancedUpper`. `coverage.hrvFirst` is the first night
-with a reading: before it, `hrv` is null and HRV says nothing.
+with a reading: before it, `hrv` is null and HRV says nothing. Same for `restingHrFirst` and
+`sleepFirst`.
 
 Check `coverage.withLoad` against `coverage.kept`: if many activities have no load, the ratio
 understates the real load: say so.
@@ -51,6 +55,8 @@ Raise a flag for each that holds, quoting the week and the numbers:
 | Grey-zone drift      | `intensity.moderatePct` > 30% for 3+ weeks   | Seiler 2010: ~80% easy is the norm in endurance sport                                                                             |
 | Abrupt drop          | `ratio` < 0.6                                | not a risk in itself: ask whether it was planned (illness, injury, taper)                                                         |
 | HRV under band       | `hrv.belowBand` ≥ 3 nights in a week         | Plews et al., _Sports Med_ 2013: HRV falling under the athlete's own baseline is the sign the load isn't being absorbed           |
+| Resting HR raised    | `restingHr.raised` ≥ 3 days in a week        | a supporting sign only: resting HR responds to fatigue less reliably than HRV (Buchheit, _Front Physiol_ 2014)                    |
+| Short sleep          | `sleep.under7h` ≥ 3 nights in a week         | under 7 h is below the adult range (Hirshkowitz et al., _Sleep Health_ 2015); a reason for HRV under band, not a load flag        |
 
 The "10% rule" has little evidence behind it (Buist et al., _Am J Sports Med_ 2008): don't
 cite it as a rule.
@@ -65,6 +71,8 @@ Split the flags in two:
 - **Earlier:** flags 3 to 8 weeks back. Context only: they never set the verdict, but say how
   they lead to now ("the drop follows September's spike").
 
+Short sleep beside HRV under band on a light week points to sleep, not training: say so.
+
 ## 4. Verdict
 
 About now only, one of:
@@ -73,15 +81,17 @@ About now only, one of:
 - **Lighter:** `lastWeek.load.ratio` under 0.8 and no rising flag now (spike, sustained high
   ratio, volume jump). Not a warning: ask whether it was planned.
 - **Watch:** one rising flag now with HRV in its band (or no HRV), a ratio of 1.3–1.5, or
-  HRV under band now without rising load (illness, stress, sleep: ask).
+  HRV under band now without rising load (illness, stress, sleep: say which `sleep`
+  points to, else ask).
 - **Overreaching risk:** a rising flag now **and** HRV under band now; or, with no HRV, a
-  load spike now plus a volume jump or a sustained high ratio now.
+  rising flag now plus resting HR raised now, or a load spike now plus a volume jump or a
+  sustained high ratio now. Resting HR raised beside HRV under band makes it firmer: say so.
 
 Abrupt drop and grey-zone drift never raise the verdict past Watch. A rising flag with HRV in
 its band says the load is being absorbed so far: say so, it's the most useful line here.
 
-Be honest about what the data can't show: no sleep, resting heart rate or soreness (not
-exported yet), and no HRV before `coverage.hrvFirst`. Overreaching is felt before it shows
+Be honest about what the data can't show: soreness and how training feels, and no HRV,
+resting HR or sleep before their `coverage` first dates. Overreaching is felt before it shows
 in load: invite the runner to weigh how they feel.
 
 ## 5. Write
@@ -91,9 +101,10 @@ in load: invite the runner to weigh how they feel.
 
 Load ratio now <lastWeek.load.ratio> (7-day <acute> / 28-day <chronic> per week)
 HRV last 7 nights: <average> ms, <belowBand> under / <aboveBand> over band (or "no reading")
+Resting HR <average> bpm against <baseline>, <raised> days raised · Sleep <averageHours> h, <under7h> nights under 7 h
 
-| Week | km | h | Load | Ratio | Δ km | Easy % | HRV (under band) |
-|------|----|---|------|-------|------|--------|------------------|
+| Week | km | h | Load | Ratio | Δ km | Easy % | HRV (under band) | Sleep < 7 h |
+|------|----|---|------|-------|------|--------|------------------|-------------|
 (last 8 weeks, oldest first; a partial week marked "(so far)")
 
 **Now**
@@ -106,5 +117,5 @@ HRV last 7 nights: <average> ms, <belowBand> under / <aboveBand> over band (or "
 <one or two sentences: hold volume, add an easy week, nothing to change>
 ```
 
-End with: _Based on Garmin's activity summaries; a warning light, not a diagnosis, and not
+End with: _Based on Garmin's activity and wellness summaries; a warning light, not a diagnosis, and not
 medical advice._

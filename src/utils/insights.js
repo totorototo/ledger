@@ -58,6 +58,40 @@ export function hrvSummary(nights) {
   };
 }
 
+// Resting heart rate ({ date, resting }) from `from` to `to`, against the runner's own
+// baseline: the median of the 28 days before `from`. `raised` counts the days at least 5 bpm
+// over it. Null with no day; `baseline` null with under 14 days to set it.
+// why a baseline of ours here: Garmin gives HRV a band, not resting heart rate; the median
+// keeps a sick day from moving it.
+export function restingSummary(all, from, to) {
+  const days = all.filter((d) => d.date >= from && d.date <= to);
+  if (!days.length) return null;
+  const before = all.filter((d) => d.date >= addDays(from, -28) && d.date < from);
+  const baseline = before.length >= 14 ? median(before.map((d) => d.resting)) : null;
+  return {
+    days: days.length,
+    average: round(days.reduce((sum, d) => sum + d.resting, 0) / days.length, 0),
+    baseline: round(baseline, 0),
+    raised: baseline == null ? null : days.filter((d) => d.resting >= baseline + 5).length,
+  };
+}
+
+// Nights of sleep ({ date, hours, score }): their mean length and Garmin score, and how many
+// were under 7 h (the adult minimum of Hirshkowitz et al., _Sleep Health_ 2015). Null with no
+// night.
+export function sleepSummary(nights) {
+  if (!nights.length) return null;
+  const scored = nights.filter((n) => n.score != null);
+  return {
+    nights: nights.length,
+    averageHours: round(nights.reduce((sum, n) => sum + n.hours, 0) / nights.length),
+    averageScore: scored.length
+      ? round(scored.reduce((sum, n) => sum + n.score, 0) / scored.length, 0)
+      : null,
+    under7h: nights.filter((n) => n.hours < 7).length,
+  };
+}
+
 // How many sessions Garmin labelled each way ("TEMPO", "RECOVERY"…); unlabelled ones left out.
 export function effects(activities) {
   const counts = {};
@@ -85,10 +119,13 @@ export function session(activity) {
   };
 }
 
+// A summary with the days it sums, for the last 7 days; null stays null.
+const withDays = (summary, days) => summary && { ...summary, days };
+
 // The 7 days to `until` against the 28 before them, per week: what weekly-review reads.
 // `first` is the history's first day: the average is per week the history covers, so a new
 // account's isn't diluted by weeks before its first activity.
-function lastWeek(activities, until, first, nights) {
+function lastWeek(activities, until, first, { nights, resting, sleep }) {
   const from = addDays(until, -6);
   const week = activities.filter(inRange(from, until));
   const start = addDays(from, -28);
@@ -102,6 +139,8 @@ function lastWeek(activities, until, first, nights) {
   );
   const now = volume(week);
   const weekNights = nights.filter((n) => n.date >= from && n.date <= until);
+  const restingDays = resting.filter((d) => d.date >= from && d.date <= until);
+  const sleepDays = sleep.filter((n) => n.date >= from && n.date <= until);
   return {
     from,
     until,
@@ -129,13 +168,20 @@ function lastWeek(activities, until, first, nights) {
           })),
         }
       : null,
+    restingHr: withDays(restingSummary(resting, from, until), restingDays),
+    sleep: withDays(sleepSummary(sleepDays), sleepDays),
     sessions: week.map(session),
   };
 }
 
 // The whole history, screened, summed per week, month and year up to `until` ("YYYY-MM-DD").
-// `hrv` is every night's reading (server/export.js's readHrv); without it, HRV fields are null.
-export function insights(history, until, { hrv = [] } = {}) {
+// `hrv`, `restingHr` and `sleep` are the readings server/export.js reads, `zones` the running
+// zones as set now; without one, its fields are null.
+export function insights(
+  history,
+  until,
+  { hrv = [], restingHr = [], sleep = [], zones = null } = {},
+) {
   // Nothing past `until`: an export taken on a day reads as it did on that day. Cut before
   // screening, so `coverage.activities` and `kept` count the same period.
   const period = history.filter((a) => dayOf(a) && dayOf(a) <= until);
@@ -148,6 +194,11 @@ export function insights(history, until, { hrv = [] } = {}) {
     .filter((n) => n.date <= until && n.lastNightAvg != null)
     .sort((a, b) => a.date.localeCompare(b.date));
   const nightsIn = (from, to) => nights.filter((n) => n.date >= from && n.date <= to);
+  const upTo = (list) =>
+    list.filter((d) => d.date <= until).sort((a, b) => a.date.localeCompare(b.date));
+  const resting = upTo(restingHr);
+  const slept = upTo(sleep);
+  const sleepIn = (from, to) => sleepSummary(slept.filter((n) => n.date >= from && n.date <= to));
 
   const perWeek = new Map();
   for (const a of activities) {
@@ -170,6 +221,8 @@ export function insights(history, until, { hrv = [] } = {}) {
         intensity: intensity(list),
         effects: effects(list),
         hrv: hrvSummary(nightsIn(key, addDays(key, 6))),
+        restingHr: restingSummary(resting, key, addDays(key, 6)),
+        sleep: sleepIn(key, addDays(key, 6)),
         // The week ends after `until`: its totals and `kmChange` are of the days so far.
         partial: addDays(key, 6) > until,
       };
@@ -196,6 +249,8 @@ export function insights(history, until, { hrv = [] } = {}) {
       power: round(median(monthRuns.map((a) => a.avgPower)), 0),
       runsWithPower: monthRuns.filter((a) => a.avgPower > 0).length,
       hrv: hrvSummary(nightsIn(`${m.key}-01`, `${m.key}-31`)),
+      restingHr: restingSummary(resting, `${m.key}-01`, `${m.key}-31`),
+      sleep: sleepIn(`${m.key}-01`, `${m.key}-31`),
     };
   });
 
@@ -225,9 +280,18 @@ export function insights(history, until, { hrv = [] } = {}) {
       withEffect: activities.filter((a) => a.trainingEffectLabel).length,
       hrvNights: nights.length,
       hrvFirst: nights[0]?.date ?? null,
+      restingHrDays: resting.length,
+      restingHrFirst: resting[0]?.date ?? null,
+      sleepNights: slept.length,
+      sleepFirst: slept[0]?.date ?? null,
     },
     faults,
-    lastWeek: lastWeek(activities, until, first, nights),
+    zones,
+    lastWeek: lastWeek(activities, until, first, {
+      nights,
+      resting,
+      sleep: slept,
+    }),
     weeks,
     months,
     years,

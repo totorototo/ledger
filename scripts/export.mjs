@@ -3,8 +3,8 @@
 //   npm run export
 //
 // Output in data/ (gitignored, never committed): activities.json, the trimmed history,
-// hrv.json, each night's HRV, and metrics.json, the weekly, monthly and yearly sums of
-// src/utils/insights.js up to today.
+// wellness.json, each day's HRV, resting heart rate and sleep plus the running zones, and
+// metrics.json, the weekly, monthly and yearly sums of src/utils/insights.js up to today.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,7 +12,14 @@ import { fileURLToPath } from "node:url";
 
 import { loadEnv } from "vite";
 
-import { createExportClient, readHistory, readHrv } from "../server/export.js";
+import {
+  createExportClient,
+  readHistory,
+  readHrv,
+  readRestingHr,
+  readSleep,
+  readZones,
+} from "../server/export.js";
 import { insights } from "../src/utils/insights.js";
 import { today } from "../src/utils/yearStats.js";
 
@@ -31,14 +38,23 @@ try {
   const until = today().iso;
   const since = activities.at(-1)?.startTimeLocal?.slice(0, 10) ?? until;
   const hrv = await readHrv(client, until, since);
-  console.log(`read ${hrv.length} nights of HRV`);
+  const restingHr = await readRestingHr(client, until, since);
+  // Sleep is read a month at a time with no stop, so only from the first wellness reading.
+  const wellnessFirst = [hrv[0]?.date, restingHr[0]?.date].filter(Boolean).sort()[0];
+  const sleep = wellnessFirst ? await readSleep(client, until, wellnessFirst) : [];
+  const zones = await readZones(client);
+  console.log(
+    `read ${hrv.length} nights of HRV, ${restingHr.length} days of resting HR, ${sleep.length} nights of sleep`,
+  );
   mkdirSync(OUT_DIR, { recursive: true });
   const write = (name, value) =>
     writeFileSync(join(OUT_DIR, name), `${JSON.stringify(value, null, 2)}\n`);
   write("activities.json", { until, activities });
-  write("hrv.json", { until, nights: hrv });
-  write("metrics.json", insights(activities, until, { hrv }));
-  console.log(`wrote activities.json, hrv.json and metrics.json to ${OUT_DIR}, up to ${until}`);
+  write("wellness.json", { until, hrv, restingHr, sleep, zones });
+  write("metrics.json", insights(activities, until, { hrv, restingHr, sleep, zones }));
+  console.log(
+    `wrote activities.json, wellness.json and metrics.json to ${OUT_DIR}, up to ${until}`,
+  );
 } catch (err) {
   console.error(`export failed: ${err.message}`);
   process.exitCode = 1;

@@ -37,6 +37,9 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   `trainingEffectLabel`…), power, cadence and `differenceBodyBattery` from mid-2023 on, never
   `vO2MaxValue`. HRV (`/hrv-service/hrv/daily/{start}/{end}`) answers up to a year per request
   (400 days → 400), 204 for a range with no readings; this account's start in 2024-01.
+  Daily summaries (`heartRate.restingValue`) answer up to 365 days, sleep summaries up to 31
+  (an object keyed "0", "1"…); both start 2024-01 here, older daily summaries carry no heart
+  rate. Heart-rate zones are the current settings only. Activity detail carries no RPE/feel.
 - The cached history (IndexedDB, one entry per account) is merged by `activityId`; only
   Refresh sees an activity edited or deleted on an older day.
 - Every activity is trimmed to `KEPT` in `src/store/cache.js`: reading a new field means
@@ -72,9 +75,12 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   token source and pages of 100 (`server/export.js`), trims it with `trim`, and writes
   `data/activities.json` and `data/metrics.json` (`insights` in `src/utils/insights.js`).
   `data/` is gitignored: it is the account's data.
-- HRV (`readHrv`) is read a year per request back from today, stopping at the first year
-  with no reading, into `data/hrv.json`. The skills read HRV against Garmin's balanced band
-  (`belowBand`), never against a baseline of ours.
+- Wellness goes into `data/wellness.json`: HRV (`readHrv`) and resting HR (`readRestingHr`)
+  a year per request back from today, stopping at the first year with no reading; sleep
+  (`readSleep`) a month per request from the first of those, without stopping (a month off
+  the watch happens); the running zones as set now. The skills read HRV against Garmin's
+  balanced band, never a baseline of ours; resting HR has no Garmin band, so its baseline is
+  the median of the 28 days before (`restingSummary`).
 - `metrics.json` is built only from the pages' own sums (`metrics.js`, `training.js`,
   `yearStats.js`), so a skill's numbers match the app's. Changing a field's meaning or
   removing one means bumping `METRICS_VERSION` and the version the skills check.
