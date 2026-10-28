@@ -96,6 +96,15 @@ fatigue exponent, not road running's 1.06. Check:
   the last 24 months lean from it: quote its `pct` and `events`, and the `formTime` beside
   each prediction. On 2 or 3 events, call it a lean, not a measure. It is the races, not the
   training: a race months away will be run on the training still to come.
+- **Readiness** (a race ahead whose `plan.races[].daysTo` is 21 or less, only then): the
+  training going into it, beside the prediction, never changing it. Quote
+  `lastWeek.load.ratio` and the last 3 `weeks[].ratio`, the latest non-null
+  `months[].efficiency` against the months before it, and `lastWeek.hrv` (`belowBand`) and
+  `lastWeek.restingHr` (`raised`). Read the ratio with the load-check skill's bands: under 0.6
+  the week before a race is a taper, not a warning; over 1.3 that close to it, say so. HRV
+  under band or resting HR raised: say the body is carrying something. Never turn any of it
+  into a time or a percentage: no past event has calibrated how far readiness moves a finish.
+  Any field null: say it's missing, don't infer it.
 - **Stops.** An event far off the curve may be off on its stops, not its running: compare its
   `moving` and `stops` with another event of its length (a night's sleep, a long aid station).
   A race ahead's `stops` is the runner's usual, not a plan.
@@ -121,6 +130,7 @@ fatigue exponent, not road running's 1.06. Check:
 - <what anchors the curve, and the stretch it guesses>
 - <the events furthest off and why>
 - <form now against the curve>
+- <readiness, only for a race 21 days away or less: load ratio, efficiency, HRV and resting HR going into it>
 
 **To sharpen it**
 <one line: the event or plan line that would firm the curve up>
