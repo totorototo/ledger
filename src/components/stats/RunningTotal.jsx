@@ -16,12 +16,19 @@ const LAST_DAY = 365;
 const MONTH_STARTS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
 // Each year's running total, Jan 1 to Dec 31, as one line on one axis: how the year built up,
-// and how it stands against the one before at the same date. `years` are drawn oldest first;
-// `focus` is the year in the trend hue, the one before it dashed, any other a faint line.
-// `today` ({ year, day }) ends the current year's line at today.
+// and how it stands against another at the same date. `years` are drawn oldest first; `focus`
+// is the year in the trend hue, `against` (the one before by default) dashed, any other a
+// faint line. `today` ({ year, day }) ends the current year's line at today.
 // why violet and a dash, not the series hues: those hues name sports on this page; a year in
 // blue would read as running.
-export default function RunningTotal({ activities, years, focus, today, measureKey }) {
+export default function RunningTotal({
+  activities,
+  years,
+  focus,
+  against = focus - 1,
+  today,
+  measureKey,
+}) {
   const [active, setActive] = useState(null);
   const measure = MEASURES.find((m) => m.key === measureKey);
 
@@ -36,10 +43,13 @@ export default function RunningTotal({ activities, years, focus, today, measureK
   );
   const top = niceMax(measure.scale(Math.max(0, ...lines.map(({ running, end }) => running[end]))));
   const main = lines.find(({ year }) => year === focus);
-  const before = lines.find(({ year }) => year === focus - 1);
+  const before = lines.find(({ year }) => year === against);
   const hasBefore = before !== undefined && before.running.at(-1) > 0;
-  // Read at the pointer, else at the focus year's last drawn day: today, or Dec 31.
-  const day = active ?? main.end;
+  // Read at the pointer, else at the focus year's last drawn day (today, or Dec 31), or at
+  // today when the compared year is the current one.
+  // why: a past year's whole total against this year's so far would always read as a gain.
+  const last = hasBefore && against === today.year ? before.end : main.end;
+  const day = active ?? last;
   const nowValue = totalAt(main.running, Math.min(day, main.end));
   const thenValue = hasBefore ? totalAt(before.running, day) : null;
   const delta = hasBefore ? change(nowValue, thenValue) : null;
@@ -51,7 +61,8 @@ export default function RunningTotal({ activities, years, focus, today, measureK
       .slice(0, end + 1)
       .map((value, i) => `${i === 0 ? "M" : "L"}${i} ${y(value).toFixed(2)}`)
       .join("");
-  const roleOf = (year) => (year === focus ? "is-focus" : year === focus - 1 ? "is-before" : "");
+  const roleOf = (year) => (year === focus ? "is-focus" : year === against ? "is-before" : "");
+  const rank = (year) => (year === focus ? 2 : year === against ? 1 : 0);
 
   const pick = (event) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -62,7 +73,7 @@ export default function RunningTotal({ activities, years, focus, today, measureK
     const moves = { ArrowLeft: -7, ArrowRight: 7, Home: -Infinity, End: Infinity };
     if (!(event.key in moves)) return;
     event.preventDefault();
-    setActive(Math.max(0, Math.min(main.end, (active ?? main.end) + moves[event.key])));
+    setActive(Math.max(0, Math.min(main.end, (active ?? last) + moves[event.key])));
   };
 
   return (
@@ -72,14 +83,14 @@ export default function RunningTotal({ activities, years, focus, today, measureK
       </div>
       <p className="readout" aria-live="polite">
         <span className="readout-label">
-          {active === null && main.end === daysIn(focus) - 1
+          {active === null && last === daysIn(focus) - 1
             ? `${focus} total`
             : `${focus} by ${dayLabel(focus, Math.min(day, main.end))}`}
         </span>
         <strong>{measure.format(nowValue)}</strong>
         {hasBefore && (
           <span>
-            {delta && <span className="change">{delta}</span>} vs {focus - 1} at that date (
+            {delta && <span className="change">{delta}</span>} vs {against} at that date (
             {measure.format(thenValue)})
           </span>
         )}
@@ -97,7 +108,7 @@ export default function RunningTotal({ activities, years, focus, today, measureK
           role="img"
           tabIndex={0}
           aria-label={`${measure.label} through ${focus}: ${measure.format(main.running[main.end])}${
-            hasBefore ? `; ${focus - 1}: ${measure.format(before.running.at(-1))}` : ""
+            hasBefore ? `; ${against}: ${measure.format(before.running[before.end])}` : ""
           }`}
           onPointerMove={pick}
           onPointerLeave={() => setActive(null)}
@@ -107,9 +118,9 @@ export default function RunningTotal({ activities, years, focus, today, measureK
           {/* why preserveAspectRatio none: the lines stretch to the plot; non-scaling strokes
               keep them 2px whatever the stretch. */}
           <svg viewBox={`0 0 ${LAST_DAY} 100`} preserveAspectRatio="none" aria-hidden="true">
-            {/* Faint years first, so the focus year is drawn over them. */}
+            {/* Faint years first, then the compared one, so the focus year is drawn over all. */}
             {[...lines]
-              .sort((a, b) => Number(a.year === focus) - Number(b.year === focus))
+              .sort((a, b) => rank(a.year) - rank(b.year))
               .map((line) => (
                 <path
                   key={line.year}
@@ -154,7 +165,7 @@ export default function RunningTotal({ activities, years, focus, today, measureK
         {hasBefore && (
           <li>
             <span className="key-line is-before" aria-hidden="true" />
-            {focus - 1}
+            {against}
           </li>
         )}
         {years.length > 2 && (

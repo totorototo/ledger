@@ -123,14 +123,15 @@ const TILES = [
   { key: "elevationGain", label: "Climb", format: formatGainTotal },
 ];
 
-// Four tiles. `compare` ({ totals, label }) adds each one's change against other totals, as
-// "+12% vs 2024 at this date"; a tile with nothing to compare with says so.
+// Four tiles. `compare` ({ totals, label, base? }) adds each one's change against other
+// totals, as "+12% vs 2024 at this date"; a tile with nothing to compare with says so. `base`,
+// when given, is what is compared instead of the tiles' own totals (the year cut at a date).
 // why the change in ink, not the ahead/behind colours: more volume is not always better.
 export function Totals({ totals, compare }) {
   return (
     <dl className="totals">
       {TILES.map(({ key, label, format }) => {
-        const delta = compare ? change(totals[key], compare.totals[key]) : null;
+        const delta = compare ? change((compare.base ?? totals)[key], compare.totals[key]) : null;
         return (
           <div key={key}>
             <dt>{label}</dt>

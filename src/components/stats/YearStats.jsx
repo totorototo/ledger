@@ -27,8 +27,24 @@ function YearStats({ className }) {
   const before = useStore((state) => state.years[state.year - 1]);
   const showYear = useStore((state) => state.showYear);
   const loadYear = useStore((state) => state.loadYear);
+  const compareWith = useStore((state) => state.compareWith);
   // The first year with an activity, once the whole history is read: no going back past it.
   const firstYear = useStore((state) => state.history?.firstYear ?? null);
+  const thisYear = new Date().getFullYear();
+  const earliest = Math.min(firstYear ?? thisYear - 9, year);
+  const pickable = Array.from({ length: thisYear - earliest + 1 }, (_, i) => thisYear - i);
+  // The year compared with: the one picked, kept as the shown year changes, else the year
+  // before; none before the first activity's year.
+  // why a picked year stays put: stepping through years against one reference (2021, a
+  // record year) is the question; a picker that reset on every step would lose it.
+  const pinned = useStore((state) => state.against);
+  const against =
+    pinned !== null && pinned !== year
+      ? pinned
+      : firstYear === null || year - 1 >= firstYear
+        ? year - 1
+        : null;
+  const other = useStore((state) => (against === null ? undefined : state.years[against]));
   const types = useStore((state) => state.types);
   const toggleTypes = useStore((state) => state.toggleTypes);
   const clearTypes = useStore((state) => state.clearTypes);
@@ -44,11 +60,11 @@ function YearStats({ className }) {
   const counts = useMemo(() => countByType(all ?? []), [all]);
   const shown = useMemo(() => filterByType(all ?? [], types), [all, types]);
   const summary = useMemo(() => summarize(shown), [shown]);
-  // This year's and the one before's, filtered alike, for the running total.
+  // This year's and the compared one's, filtered alike, for the running total.
   const compared = useMemo(
     () =>
-      before?.status === "ready" ? [...filterByType(before.activities, types), ...shown] : shown,
-    [before, types, shown],
+      other?.status === "ready" ? [...filterByType(other.activities, types), ...shown] : shown,
+    [other, types, shown],
   );
   const parts = useMemo(
     () =>
@@ -60,9 +76,6 @@ function YearStats({ className }) {
       ),
     [shown, series],
   );
-  const thisYear = new Date().getFullYear();
-  const earliest = Math.min(firstYear ?? thisYear - 9, year);
-  const pickable = Array.from({ length: thisYear - earliest + 1 }, (_, i) => thisYear - i);
   const now = useMemo(() => today(), []);
   // This year's months past the current one are still to come, not months of nothing.
   const lastMonth = year === now.year ? Number(now.iso.slice(5, 7)) - 1 : 11;
@@ -74,39 +87,52 @@ function YearStats({ className }) {
     parts: parts[i],
     future: i > lastMonth,
   }));
-  const pair = useMemo(() => [year - 1, year], [year]);
+  const pair = useMemo(
+    () => (against === null ? [year] : [Math.min(year, against), Math.max(year, against)]),
+    [year, against],
+  );
   // Training reads every sport, and the year before for January's 28-day load.
   const both = useMemo(
     () => (before?.status === "ready" ? [...before.activities, ...all] : (all ?? [])),
     [before, all],
   );
   const until = year === now.year ? now.iso : `${year}-12-31`;
-  // The year before, filtered alike and, for this year, cut at today's date: a whole year
-  // against ten months would always read as a drop.
+  // The compared year, filtered alike. When either year is the current one, both are cut at
+  // today's date: a whole year against ten months would always read as a drop (or a gain).
   const compare = useMemo(() => {
-    if (before?.status !== "ready") return null;
-    const sameTypes = filterByType(before.activities, types);
-    const current = year === now.year;
-    const list = current
-      ? sameTypes.filter((a) => dayOfYear(a.startTimeLocal) <= now.day)
-      : sameTypes;
-    return {
-      totals: summarize(list).totals,
-      year: year - 1,
-      label: current ? `vs ${year - 1} at this date` : `vs ${year - 1}`,
-    };
-  }, [before, types, year, now]);
+    if (against === null || other?.status !== "ready") return null;
+    const sameTypes = filterByType(other.activities, types);
+    const toDate = (list) => list.filter((a) => dayOfYear(a.startTimeLocal) <= now.day);
+    if (year === now.year) {
+      return { totals: summarize(toDate(sameTypes)).totals, label: `vs ${against} at this date` };
+    }
+    if (against === now.year) {
+      return {
+        totals: summarize(sameTypes).totals,
+        base: summarize(toDate(shown)).totals,
+        label: `vs ${against} at this date`,
+      };
+    }
+    return { totals: summarize(sameTypes).totals, label: `vs ${against}` };
+  }, [against, other, types, year, shown, now]);
 
   // The year shown is read as the page opens, and again after Refresh forgets it.
   useEffect(() => {
     if (!entry) loadYear(year);
   }, [entry, year, loadYear]);
 
-  // The year before too, for "vs last year at this date": one more read, kept as any year is.
+  // The year before too, for Training's January: one more read, kept as any year is.
   // why not the whole history: a year is one or two requests, the history one per 100.
   useEffect(() => {
     if (!before && (firstYear === null || year - 1 >= firstYear)) loadYear(year - 1);
   }, [before, year, firstYear, loadYear]);
+
+  // And the compared year, when it isn't that one.
+  useEffect(() => {
+    if (against !== null && !other) loadYear(against);
+  }, [against, other, loadYear]);
+
+  const others = pickable.filter((y) => y !== year);
 
   const legend = (
     <SeriesLegend
@@ -142,6 +168,9 @@ function YearStats({ className }) {
             ))}
           </select>
         </div>
+        {/* The arrows next to the title: they step that year.
+            why before the compared year: on a phone the comparison wraps under the year
+            instead of the arrows wrapping away from it. */}
         <div className="years">
           <button
             type="button"
@@ -160,6 +189,35 @@ function YearStats({ className }) {
             <ChevronRight size={18} />
           </button>
         </div>
+        {/* The year compared with, a picker as the title is: the tiles' changes and the
+            running total's dashed line follow it. */}
+        {others.length > 0 && (
+          <div className="against">
+            <span aria-hidden="true">vs</span>
+            <div className="title-pick">
+              <span className="against-year">
+                {against ?? "—"}
+                <ChevronDown className="title-caret" size={16} aria-hidden="true" />
+              </span>
+              <select
+                aria-label="Compare with"
+                value={against ?? ""}
+                onChange={(event) => compareWith(Number(event.target.value))}
+              >
+                {against === null && (
+                  <option value="" disabled>
+                    —
+                  </option>
+                )}
+                {others.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
       {/* The page's controls: the type filter and the measure, over everything below them. */}
       {entry?.status === "ready" && (summary.totals.count > 0 || types.length > 0) && (
@@ -190,6 +248,7 @@ function YearStats({ className }) {
               activities={compared}
               years={pair}
               focus={year}
+              against={against}
               today={now}
               measureKey={measure}
             />

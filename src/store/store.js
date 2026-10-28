@@ -165,6 +165,9 @@ export const createStore = (getClient = createGarminClient, cache = createActivi
             // What the charts plot, page-wide: "distance", "duration" or "elevationGain".
             measure: "distance",
             year: new Date().getFullYear(),
+            // The year the Year page compares with, kept as the shown year changes; null for
+            // the year before. Not persisted: a comparison is a question of the moment.
+            against: null,
             // The activity types the pages sum (typeKeys, null for none); empty sums them all.
             types: [],
             // Per year: { status: loading | ready | error, activities, error }. Kept until
@@ -203,6 +206,11 @@ export const createStore = (getClient = createGarminClient, cache = createActivi
 
             showYear(year) {
               set({ year }, false, "showYear");
+              get().loadYear(year);
+            },
+
+            compareWith(year) {
+              set({ against: year }, false, "compareWith");
               get().loadYear(year);
             },
 

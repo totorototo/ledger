@@ -110,6 +110,20 @@ describe("store", () => {
     expect(store.getState().years[2024].error).toBe("Garmin answered 500.");
   });
 
+  it("keeps the year compared with, and reads it", async () => {
+    const client = fakeClient({ activities: vi.fn(async () => []) });
+    const store = createStore(() => client, memoryCache());
+    await store.getState().connect();
+    store.getState().compareWith(2021);
+    expect(store.getState().against).toBe(2021);
+    await vi.waitFor(() => expect(store.getState().years[2021].status).toBe("ready"));
+    expect(client.activities).toHaveBeenCalledWith(
+      expect.objectContaining({ startDate: "2021-01-01", endDate: "2021-12-31" }),
+    );
+    // A comparison is a question of the moment: not persisted.
+    expect(JSON.parse(localStorage.getItem("garmin")).state.against).toBeUndefined();
+  });
+
   it("reads the whole history, counting as it goes, and files it by year", async () => {
     const at = (i) =>
       activity({ activityId: i, startTimeLocal: `${2019 + (i % 3) * 2}-05-01 08:00:00` });

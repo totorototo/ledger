@@ -128,6 +128,70 @@ describe("Year", () => {
     expect(running).toHaveTextContent("2025 by Jan 1");
   });
 
+  it("compares with the year picked, kept as the shown year changes", async () => {
+    const older = [
+      activity({ activityId: 9, startTimeLocal: "2021-03-10 08:00:00", distance: 29_700 }),
+    ];
+    useStore.setState({
+      view: "year",
+      history: { status: "ready", activities: [...year, ...older], firstYear: 2021 },
+      years: {
+        2021: { status: "ready", activities: older, error: null },
+        2024: { status: "ready", activities: [], error: null },
+        2025: { status: "ready", activities: year, error: null },
+      },
+    });
+    render(<App />);
+    const against = screen.getByRole("combobox", { name: "Compare with" });
+    expect(against).toHaveValue("2024");
+    expect(within(against).queryByRole("option", { name: "2025" })).toBeNull();
+    await userEvent.selectOptions(against, "2021");
+    expect(useStore.getState().against).toBe(2021);
+    expect(document.querySelector(".totals")).toHaveTextContent("+200% vs 2021");
+    expect(document.querySelector(".running .readout")).toHaveTextContent(
+      "+200% vs 2021 at that date (29.7 km)",
+    );
+    expect(document.querySelector(".line-key")).toHaveTextContent("2021");
+    // The pick stays as the year shown moves.
+    await userEvent.click(screen.getByRole("button", { name: "Previous year" }));
+    expect(screen.getByRole("combobox", { name: "Compare with" })).toHaveValue("2021");
+  });
+
+  it("cuts both years at today's date when the year compared with is the current one", () => {
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    const pad = (n) => String(n).padStart(2, "0");
+    const day = `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    // One run on Jan 1 each year, and one more in 2025 on Dec 31, past today's date.
+    const past = [
+      activity({ activityId: 1, startTimeLocal: "2025-01-01 08:00:00", distance: 10_000 }),
+      activity({ activityId: 2, startTimeLocal: "2025-12-31 08:00:00", distance: 10_000 }),
+    ];
+    const current = [
+      activity({ activityId: 3, startTimeLocal: `${thisYear}-01-01 08:00:00`, distance: 10_000 }),
+    ];
+    useStore.setState({
+      view: "year",
+      year: 2025,
+      against: thisYear,
+      years: {
+        2024: { status: "ready", activities: [], error: null },
+        2025: { status: "ready", activities: past, error: null },
+        [thisYear]: { status: "ready", activities: current, error: null },
+      },
+    });
+    render(<App />);
+    // Dec 31 is past today's date (unless today is Dec 31), so 2025 counts its Jan 1 alone.
+    if (day !== "12-31") {
+      expect(document.querySelector(".totals")).toHaveTextContent(
+        `±0% vs ${thisYear} at this date`,
+      );
+      expect(document.querySelector(".running .readout")).toHaveTextContent(
+        `±0% vs ${thisYear} at that date`,
+      );
+    }
+  });
+
   it("shows the year's training once it carries load or heart rate", () => {
     const bare = year.map((a) => ({ ...a, averageHR: undefined }));
     useStore.setState({

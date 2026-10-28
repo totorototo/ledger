@@ -56,8 +56,11 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   chart legend) is applied as the pages render, never at fetch time, so changing it costs no
   request. The sums are pure functions in `src/utils/yearStats.js`.
 - The running total (`RunningTotal.jsx`) is the day-by-day cumulative sum (`runningTotal`,
-  indexed by `dayOfYear`, read from the string like `monthOf`). The Year page also reads the
-  year before for "vs last year at this date"; All time draws every year from the history.
+  indexed by `dayOfYear`, read from the string like `monthOf`). The Year page compares with
+  another year (`against` in the store, the year before when none is picked; kept as the shown
+  year changes, not persisted): the tiles' changes and the running total's dashed line follow
+  it, both cut at today's date when either year is the current one. All time draws every year
+  from the history.
 - The Year page's Training section (`Training.jsx`, series in `src/utils/training.js`) takes
   its sums from `src/utils/metrics.js` (`screen`, `loadSeries`, `efficiency`, `intensity`,
   `isEasy`). One year

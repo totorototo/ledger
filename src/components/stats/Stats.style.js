@@ -107,6 +107,24 @@ const style = (Component) => styled(Component)`
     color: var(--color-primary-text);
   }
 
+  /* The compared year beside the title, smaller, underlined dashed in the soft trend step as
+     its line is in the running total: the picker names its own key. */
+  .against {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-large);
+    color: var(--color-text-muted);
+  }
+
+  .against-year {
+    display: inline-block;
+    border-bottom: 2px dashed var(--trend-soft);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+  }
+
   /* The page's controls, under the heading and over all it filters: the types at the start,
      the measure at the end, wrapped onto two rows on a phone. */
   .controls {
