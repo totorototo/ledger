@@ -75,14 +75,14 @@
 
   <section class="band">
     <div class="chart-head">
-      <h2 class="section-title">Your curve</h2>
+      <h2 class="section-title" id="curve-title">Your curve</h2>
       <div class="curve-key">
         <span><i class="ev"></i>events</span><span><i class="tr"></i>long days, DNFs</span
         ><span id="key-ahead" hidden><i class="ra"></i>races ahead</span>
       </div>
     </div>
     <div class="plot" id="plot"></div>
-    <p class="note">
+    <p class="note" id="curve-note">
       Race clock against effort-km (km + D+ / 100, ITRA's), both on log scales. The line is the time
       on the move from the power curve through your events, plus the stops that grow with it; the
       shaded band is their typical spread around it.
@@ -99,7 +99,32 @@
       </div>
     </div>
     <div class="stack">
-      <div>
+      <div id="assumed-box" hidden>
+        <h2 class="section-title ledger-title">Scaled, not fitted</h2>
+        <dl class="ledger">
+          <div>
+            <dt>From</dt>
+            <dd id="anchor">—</dd>
+          </div>
+          <div>
+            <dt>Assumed exponent</dt>
+            <dd>
+              <span data-f="assumed.exponent" data-fmt="two">—</span>
+              <span class="note-inline">(road 1.06)</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Range</dt>
+            <dd id="assumed-range">—</dd>
+          </div>
+        </dl>
+        <p class="note">
+          Under 3 events, or events too close in length, draw no curve: every time here scales from
+          one race with an assumed exponent. List your past results in the plan to replace it with
+          your own.
+        </p>
+      </div>
+      <div id="curve-box">
         <h2 class="section-title ledger-title">The curve</h2>
         <dl class="ledger">
           <div>
@@ -195,8 +220,10 @@
         <tbody id="events"></tbody>
       </table>
     </div>
-    <h2 class="section-title" style="margin-top: 2.5rem">Long days and DNFs, not fitted</h2>
-    <div class="table-wrap">
+    <h2 class="section-title training-part" style="margin-top: 2.5rem">
+      Long days and DNFs, not fitted
+    </h2>
+    <div class="table-wrap training-part">
       <table>
         <thead>
           <tr>
@@ -239,7 +266,7 @@
       .map((g) => ({
         label: `${g.effortKm} effort-km`,
         value: g.time,
-        sub: `${g.low}–${g.high} · ${g.stops} stops`,
+        sub: g.stops ? `${g.low}–${g.high} · ${g.stops} stops` : `${g.low}–${g.high}`,
       })),
   ].slice(0, 4);
   document.getElementById("stats").append(...heroes.map(stat));
@@ -281,6 +308,18 @@
 
   document.getElementById("reading").append(...R.notes.reading.map((t) => el("li", {}, t)));
   if (R.notes.sharpen) document.getElementById("sharpen").hidden = false;
+  const A = R.assumed;
+  if (!F && A) {
+    document.getElementById("curve-title").textContent = "Your times";
+    document.getElementById("curve-note").textContent =
+      "Race clock against effort-km (km + D+ / 100, ITRA's), both on log scales. The line scales from one race with an assumed exponent; the shaded band widens away from it.";
+    document.getElementById("curve-box").hidden = true;
+    document.getElementById("assumed-box").hidden = false;
+    document.getElementById("anchor").textContent =
+      `${A.anchor.name ?? "—"} · ${A.anchor.effortKm} effort-km in ${A.anchor.time}`;
+    document.getElementById("assumed-range").textContent =
+      `±${A.spreadPct}%, +${A.perDoublingPct} points per doubling`;
+  }
   if (F) {
     document.getElementById("spread").textContent = `±${F.spreadPct}%`;
     document.getElementById("range").textContent = `${F.fromEffortKm}–${F.toEffortKm} effort-km`;
@@ -330,6 +369,7 @@
     );
   document.getElementById("events").append(...R.events.map((d) => row(d, true)));
   document.getElementById("training").append(...R.training.map((d) => row(d, false)));
+  for (const n of document.querySelectorAll(".training-part")) n.hidden = !R.training.length;
 
   // The curve: log effort-km across, log hours up.
   const box = document.getElementById("plot");
@@ -382,14 +422,11 @@
       tick({ x: x(e), y: H - bottom + 16, "text-anchor": "middle" }, e);
     }
     tick({ x: W - right, y: H - 4, "text-anchor": "end", "letter-spacing": "0.1em" }, "EFFORT-KM");
-    if (F) {
-      const k = 1 + F.spreadPct / 100;
+    if (R.curve.length) {
       const cs = R.curve.filter((c) => c.effortKm >= eMin && c.effortKm <= eMax);
       const band = cs
-        .map((c) => `${x(c.effortKm).toFixed(1)},${y(c.hours * k).toFixed(1)}`)
-        .concat(
-          [...cs].reverse().map((c) => `${x(c.effortKm).toFixed(1)},${y(c.hours / k).toFixed(1)}`),
-        );
+        .map((c) => `${x(c.effortKm).toFixed(1)},${y(c.high).toFixed(1)}`)
+        .concat([...cs].reverse().map((c) => `${x(c.effortKm).toFixed(1)},${y(c.low).toFixed(1)}`));
       s.append(svg("polygon", { points: band.join(" "), fill: "var(--hairline)" }));
       const line = svg("path", {
         d: cs
@@ -476,7 +513,9 @@
             : [
                 `${d.time} · ${d.moving} moving + ${d.stops} stops · ${d.effortKm} effort-km`,
                 kind === "event"
-                  ? `${d.offPct > 0 ? "+" : ""}${d.offPct}% vs curve`
+                  ? d.offPct == null
+                    ? "scaled from, not fitted"
+                    : `${d.offPct > 0 ? "+" : ""}${d.offPct}% vs curve`
                   : "training, not fitted",
               ];
         tipEl.replaceChildren(

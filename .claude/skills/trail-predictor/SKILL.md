@@ -31,6 +31,7 @@ For a flat road race (5 km to marathon), the race-predictor skill answers better
 | `events[]`     | `date`, `name`, `km`, `climbM`, `effortKm`, `time` (the race clock), `moving`, `stops`, `speed` (effort-km per hour on the move), `why` (`result`: a past race of the plan with its official course and clock, `moving` and `stops` null unless the watch ran that course; `race`: Garmin's flag; `plan`: a plan race's date without a result; `ultra`: 100 effort-km or more), `ground`, `offPct` (time against the curve, + slower) |
 | `training[]`   | long days (30 effort-km or more) that aren't events, and DNFs (`note` "DNF"): shown, never fitted                                                                                                                                                                                                                                                                                                                                     |
 | `races[]`      | the plan's races ahead: `date`, `text`, `name`, `km`, `climbM`, `effortKm`, `ground`, `groundFitted` (false: its ground was too rare to fit, read as mixed), `time`, `moving`, `stops`, `low`–`high` (the spread around it), `within` (inside the calibrated range); `effortKm` null when the line gives no km or no D+                                                                                                               |
+| `assumed`      | null with a curve. Without one (under 3 events, or events within twice each other's length): `anchor` (`date`, `name`, `effortKm`, `time`), the one event every time scales from, with `exponent` (assumed, not the runner's), `spreadPct` at the anchor's length and `perDoublingPct` added per doubling away; `grid`, `races` and `curve` then scale from it, `moving` and `stops` null                                             |
 | `grid[]`       | the model's `time`, `moving`, `stops`, `low`, `high` at 50, 100, 150, 200 and 300 effort-km; `curve[]` is the line the page draws                                                                                                                                                                                                                                                                                                     |
 
 Effort-km is ITRA's: one kilometre per 100 m of climb. `time` is the race clock (Garmin's
@@ -38,9 +39,37 @@ Effort-km is ITRA's: one kilometre per 100 m of climb. `time` is the race clock 
 aid stations and sleep. The curve is fitted on moving time and the stops are added on top, so
 a short race doesn't inherit an ultra's sleep.
 
-If `fit` is null, say there aren't 3 events in 3 years to draw a curve, name the events there
-are, and stop. A race ahead with `effortKm` null: say which plan line needs its km and D+
-("Saintélyon 81 km 2100 m D+").
+If `fit` is null, there's no curve:
+
+- With `assumed`, give its times, all of low trust: they scale from one race (`anchor`) with
+  an assumed exponent, not the runner's. Say so in the first line, and name the events there
+  are.
+- Without `assumed` there's no event at all: say so.
+
+Either way, go to **Ask for results** below before the write-up. A race ahead with `effortKm`
+null: say which plan line needs its km and D+ ("Saintélyon 81 km 2100 m D+").
+
+### Ask for results
+
+The runner's past results replace the watch's guesses and the assumed exponent. Do this when
+`fit` is null, and offer it when the events are thin (none between 50 and 150 effort-km) or
+an outlier looks like a DNF or a run to the start.
+
+1. Ask for their results: a link to their UTMB (utmb.world/…/runner/…) or ITRA runner page,
+   or the results pasted. Races from before their Garmin count too.
+2. With a link, fetch it. An ITRA page often comes back empty (it loads its results in the
+   browser): ask for the UTMB page or a paste instead. Never log in or guess a page.
+3. Draft one plan line per race, in the plan's format:
+   `- YYYY-MM-DD <name> <km> km <D+> m D+, <h:mm:ss>` (or `…, DNF`). Leave out stop races
+   (a fixed time), relays and team results. Add `runnable` or `technical` only when the
+   runner says what the course is: a ground is the course, never how the race went.
+4. Show the lines and ask the runner to check them against their results. A fetched page
+   passes through a summarising model and can misread a digit: never write a line they
+   haven't confirmed. Ask about any race the watch recorded differently (a DNF, a run to the
+   start, a watch paused): the result line wins over the watch.
+5. Once confirmed, add them under `## Races` in `data/plan.md`. Without that file, create
+   it with the template's headings (`scripts/plan.example.md`) and none of its example lines:
+   those would read as the runner's own. Run `npm run export` and start again from step 2.
 
 ## 3. How far to trust each time
 
@@ -79,6 +108,7 @@ fatigue exponent, not road running's 1.06. Check:
 
 ```
 **Trail predictor, <until>** — curve through <fit.events> events, exponent <exponent>, ±<spreadPct>%
+(without a curve: **scaled from <anchor.name>** (<anchor.effortKm> effort-km in <anchor.time>), exponent <assumed.exponent> assumed, ±<spreadPct>% widening <perDoublingPct> points per doubling)
 
 | Race | Effort-km | Predicted | Range | Trust |
 |------|-----------|-----------|-------|-------|
@@ -92,7 +122,7 @@ fatigue exponent, not road running's 1.06. Check:
 **To sharpen it**
 <one line: the event or plan line that would firm the curve up>
 
-**In Terminus** base pace <fit.terminus.basePace>/km, fatigue <fit.terminus.fatigueCoefficient> (the preset it sits nearest), stops at the life bases as above
+**In Terminus** (with a curve only) base pace <fit.terminus.basePace>/km, fatigue <fit.terminus.fatigueCoefficient> (the preset it sits nearest), stops at the life bases as above
 ```
 
 Terminus applies its own night slowdown and weather on top; the fit's events already carry

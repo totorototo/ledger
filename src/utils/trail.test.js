@@ -288,9 +288,41 @@ describe("trailPrediction", () => {
     expect(tagged.races.at(-1).hours).toBeCloseTo(onCurve(280), 0);
   });
 
-  it("predicts nothing without enough events", () => {
-    const thin = trailPrediction([trail(1, "2026-08-20", 100, 2000, 20)], "2026-10-28");
-    expect(thin).toMatchObject({ fit: null, grid: [] });
-    expect(thin.events).toHaveLength(1);
+  it("predicts nothing without an event", () => {
+    const none = trailPrediction([trail(1, "2026-08-20", 10, 200, 1)], "2026-10-28");
+    expect(none).toMatchObject({ fit: null, assumed: null, grid: [], curve: [] });
+  });
+});
+
+describe("trailPrediction, too few events for a curve", () => {
+  // Two events, too close in length to fit: 100 effort-km in 20 h, 120 in 25 h.
+  const two = [
+    trail(1, "2026-08-20", 80, 2000, 20, { eventType: { typeKey: "race" } }),
+    trail(2, "2025-06-01", 100, 2000, 25, { eventType: { typeKey: "race" } }),
+  ];
+
+  it("scales from the event closest to the next race, and says it assumed", () => {
+    const result = trailPrediction(two, "2026-10-28", [
+      { date: "2027-06-01", text: "Long One 200 km 4000 m D+" },
+    ]);
+    expect(result.fit).toBeNull();
+    expect(result.assumed).toMatchObject({
+      exponent: 1.15,
+      spreadPct: 16,
+      anchor: { date: "2025-06-01", effortKm: 120 },
+    });
+    const [race] = result.races;
+    expect(race.hours).toBeCloseTo(25 * 2 ** 1.15, 1);
+    expect(race).toMatchObject({ moving: null, stops: null, within: false });
+  });
+
+  it("scales from the latest event without a race ahead, its range wider further away", () => {
+    const result = trailPrediction(two, "2026-10-28");
+    expect(result.assumed.anchor.date).toBe("2026-08-20");
+    // The curve's point nearest the 100 effort-km anchor (101): the narrowest band.
+    const near = result.curve.find((c) => c.effortKm === 101);
+    expect(near.high / near.hours).toBeCloseTo(Math.exp(0.15), 2);
+    const at400 = result.curve.at(-1);
+    expect(at400.high / at400.hours).toBeCloseTo(Math.exp(0.15 + 0.1 * 2), 2);
   });
 });

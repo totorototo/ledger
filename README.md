@@ -98,7 +98,9 @@ their own numbers:
 | `trail-predictor`  | How long will this trail or ultra take me? A curve through my own races    |
 
 The trail predictor fits time on the move as a power curve on effort-km (km + D+ / 100), with
-your own fatigue exponent, plus stops that grow with it and a factor per ground you tag. It
+your own fatigue exponent, plus stops that grow with it and a factor per ground you tag. With
+fewer than 3 races it scales from the closest one with an assumed exponent and says so, then
+asks for your past results (a UTMB page or a paste) and drafts the plan lines for you to check. It
 also gives the same fit as [Terminus](https://github.com/totorototo/terminus) pace settings
 (base pace, fatigue coefficient).
 

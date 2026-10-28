@@ -132,9 +132,9 @@ describe("reportData, trail", () => {
     expect(data.curve).toEqual(withTrail.trail.curve);
   });
 
-  it("refuses a history without a curve", () => {
+  it("refuses a history with no event to scale from", () => {
     expect(() => reportData("trail-predictor", metrics, NOTES["trail-predictor"])).toThrow(
-      /no curve/,
+      /nothing to scale from/,
     );
   });
 });

@@ -24,6 +24,14 @@ export const GRID = [50, 100, 150, 200, 300];
 // summaries hold nothing that tells a forest road from a boulder field. The runner does.
 export const GROUNDS = ["runnable", "technical"];
 export const MIN_GROUND = 2;
+// With too few events for a curve, a time scales from one of them with an assumed exponent,
+// and a range that starts at ±ASSUMED_SPREAD and widens with each doubling away from it.
+// why 1.15: between road running's 1.06 (Riegel) and the 1.16 to 1.30 this project's first
+// runner fitted on 16 trail races; an assumption, said as one, until the runner's own races
+// replace it.
+export const ASSUMED_EXPONENT = 1.15;
+export const ASSUMED_SPREAD = 0.15;
+export const ASSUMED_SPREAD_PER_DOUBLING = 0.1;
 // Terminus's limits on its settings (gpxz `Settings.validate`).
 export const TERMINUS_FATIGUE_MAX = 0.05;
 
@@ -320,6 +328,50 @@ export function trailPrediction(activities, until, races = []) {
   const span = events.length
     ? [Math.min(...events.map((e) => e.effortKm)), Math.max(...events.map((e) => e.effortKm))]
     : null;
+  // Without a curve: one event to scale from, the closest to the next race with a course, or
+  // the latest without one.
+  const firstTarget = races
+    .filter((r) => r.date > until)
+    .map((r) => course(r.text))
+    .find((c) => c.km != null && c.climbM != null);
+  const distance = (d, e) => Math.abs(Math.log(d.effortKm / e));
+  const anchor =
+    model || !events.length
+      ? null
+      : firstTarget
+        ? events.reduce((best, d) => {
+            const e = effortKm(firstTarget.km, firstTarget.climbM);
+            return distance(d, e) < distance(best, e) ? d : best;
+          })
+        : events.reduce((latest, d) => (d.date > latest.date ? d : latest));
+  const scaled = (e) => {
+    const hours = anchor.hours * (e / anchor.effortKm) ** ASSUMED_EXPONENT;
+    const spread =
+      ASSUMED_SPREAD + ASSUMED_SPREAD_PER_DOUBLING * Math.abs(Math.log2(e / anchor.effortKm));
+    return { hours, spread };
+  };
+  const NONE = { hours: null, time: null, low: null, high: null, moving: null, stops: null };
+  const at = (e, g) => {
+    if (model) return predict(model, e, g);
+    if (!anchor) return NONE;
+    const { hours, spread } = scaled(e);
+    return {
+      hours: round(hours, 2),
+      time: hm(hours),
+      low: hm(hours * Math.exp(-spread)),
+      high: hm(hours * Math.exp(spread)),
+      moving: null,
+      stops: null,
+    };
+  };
+  // Hours and their band at `e`, for the line the page draws.
+  const band = (e) => {
+    if (model) {
+      const { moving, stops } = clockAt(model, e);
+      return { hours: moving + stops, spread: model.spread };
+    }
+    return scaled(e);
+  };
   const ahead = races
     .filter((r) => r.date > until)
     .map((r) => {
@@ -336,9 +388,7 @@ export function trailPrediction(activities, until, races = []) {
         ground: g,
         // A ground named but too rare among the events to fit reads as mixed: say so.
         groundFitted: g == null || (curve != null && curve.grounds[g] != null),
-        ...(model && e != null
-          ? predict(model, e, g)
-          : { hours: null, time: null, low: null, high: null, moving: null, stops: null }),
+        ...(e != null ? at(e, g) : NONE),
         // Inside the events' range the curve interpolates; outside it, it guesses.
         within: e != null && span != null && e >= span[0] && e <= span[1],
       };
@@ -383,14 +433,33 @@ export function trailPrediction(activities, until, races = []) {
         curve,
       ),
     },
+    // Without a curve, what the times scale from: said, so no one reads them as fitted.
+    assumed: anchor && {
+      exponent: ASSUMED_EXPONENT,
+      spreadPct: round((Math.exp(ASSUMED_SPREAD) - 1) * 100, 0),
+      perDoublingPct: round(ASSUMED_SPREAD_PER_DOUBLING * 100, 0),
+      anchor: {
+        date: anchor.date,
+        name: anchor.name,
+        effortKm: anchor.effortKm,
+        time: anchor.time,
+      },
+    },
     races: ahead,
-    grid: model ? GRID.map((e) => ({ effortKm: e, ...predict(model, e) })) : [],
-    // The line the page draws: 25 points from 20 to 400 effort-km, evenly on a log scale.
-    curve: model
-      ? Array.from({ length: 25 }, (_, i) => 20 * 20 ** (i / 24)).map((e) => ({
-          effortKm: round(e, 0),
-          hours: round(clockAt(model, e).moving + clockAt(model, e).stops, 2),
-        }))
-      : [],
+    grid: model || anchor ? GRID.map((e) => ({ effortKm: e, ...at(e) })) : [],
+    // The line the page draws, with its band: 25 points from 20 to 400 effort-km, evenly on a
+    // log scale.
+    curve:
+      model || anchor
+        ? Array.from({ length: 25 }, (_, i) => 20 * 20 ** (i / 24)).map((e) => {
+            const { hours, spread } = band(e);
+            return {
+              effortKm: round(e, 0),
+              hours: round(hours, 2),
+              low: round(hours * Math.exp(-spread), 2),
+              high: round(hours * Math.exp(spread), 2),
+            };
+          })
+        : [],
   };
 }

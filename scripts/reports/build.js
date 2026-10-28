@@ -177,10 +177,14 @@ function aerobicProgress(m) {
 
 function trailPredictor(m) {
   const t = m.trail;
-  if (!t?.fit) throw new Error("trail-predictor: under 3 events in the last 3 years, no curve");
+  if (!t?.fit && !t?.assumed)
+    throw new Error(
+      "trail-predictor: no event in the last 3 years and no result in the plan: nothing to scale from",
+    );
   return {
     from: t.from,
     fit: t.fit,
+    assumed: t.assumed,
     events: t.events,
     training: t.training,
     races: t.races,
