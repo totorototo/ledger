@@ -15,6 +15,7 @@ import {
   weekStart,
 } from "./metrics.js";
 import { bestVdot, racePrediction } from "./race.js";
+import { trailPrediction } from "./trail.js";
 import { monthly, weeklyLoad } from "./training.js";
 import { byYear, change, summarize } from "./yearStats.js";
 
@@ -313,6 +314,11 @@ export function insights(
     plan: planSummary(plan, until),
     lastWeek: lastWeek(activities, until, first, { nights, resting, sleep: slept, entries }),
     race: racePrediction(activities, until),
+    trail: trailPrediction(
+      activities,
+      until,
+      entries.filter((e) => e.kind === "race").map((e) => ({ date: e.from, text: e.text })),
+    ),
     weeks,
     months,
     years,

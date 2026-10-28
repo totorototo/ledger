@@ -304,5 +304,7 @@ describe("insights", () => {
     expect(result.race.effort).toMatchObject({ date: "2026-10-20", distance: "5k", vdot: 50 });
     expect(result.race.predictions).toHaveLength(4);
     expect(result.months.map((m) => m.bestVdot)).toEqual([null, 50]);
+    // Two 10 km runs are neither events nor long days: no trail curve.
+    expect(result.trail).toMatchObject({ events: [], training: [], fit: null, races: [] });
   });
 });

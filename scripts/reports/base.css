@@ -62,6 +62,11 @@
   color-scheme: dark;
 }
 
+/* `hidden` wins over a display set by class (.curve-key span is inline-flex). */
+[hidden] {
+  display: none !important;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

@@ -42,6 +42,7 @@ const NOTES = {
     trend: "t",
     sharpen: "s",
   },
+  "trail-predictor": { headline: "h", takeaway: "t", reading: ["r"], sharpen: null },
   "load-check": {
     verdict: "Steady",
     takeaway: "t",
@@ -103,6 +104,38 @@ describe("reportData", () => {
     expect(() =>
       reportData("weekly-review", { version: metrics.version, empty: true }, {}),
     ).toThrow(/no activities/);
+  });
+});
+
+describe("reportData, trail", () => {
+  it("passes the curve, the events and the races ahead as metrics.json has them", () => {
+    // 3 ultra-length days of different lengths make a curve.
+    const ultras = [
+      [901, "2026-05-01", 100, 2000, 18],
+      [902, "2025-06-01", 160, 6000, 36],
+      [903, "2024-06-01", 250, 9000, 70],
+    ].map(([id, day, km, climb, hours]) =>
+      activity({
+        activityId: id,
+        startTimeLocal: `${day} 05:00:00`,
+        activityType: { typeKey: "trail_running" },
+        distance: km * 1000,
+        duration: hours * 3600,
+        elevationGain: climb,
+      }),
+    );
+    const withTrail = insights([...history, ...ultras], "2026-10-28");
+    const data = reportData("trail-predictor", withTrail, NOTES["trail-predictor"]);
+    expect(data.fit).toEqual(withTrail.trail.fit);
+    expect(data.events).toHaveLength(3);
+    expect(data.grid).toEqual(withTrail.trail.grid);
+    expect(data.curve).toEqual(withTrail.trail.curve);
+  });
+
+  it("refuses a history without a curve", () => {
+    expect(() => reportData("trail-predictor", metrics, NOTES["trail-predictor"])).toThrow(
+      /no curve/,
+    );
   });
 });
 

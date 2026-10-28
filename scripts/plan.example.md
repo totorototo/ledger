@@ -6,7 +6,7 @@ range `from..to`, then free text. Lines without a date are ignored, and the expo
 
 ## Races
 
-- 2026-12-05 Saintélyon 81 km, A race, goal under 12 h
+- 2026-12-05 Saintélyon 81 km 2100 m D+, A race, goal under 12 h
 - 2027-04-10 Trail des Cerfs 30 km, B race
 
 ## Planned

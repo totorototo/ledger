@@ -6,7 +6,13 @@
 
 import { METRICS_VERSION } from "../../src/utils/insights.js";
 
-export const SKILLS = ["race-predictor", "load-check", "weekly-review", "aerobic-progress"];
+export const SKILLS = [
+  "race-predictor",
+  "trail-predictor",
+  "load-check",
+  "weekly-review",
+  "aerobic-progress",
+];
 export const VERDICTS = ["Steady", "Lighter", "Watch", "Overreaching risk"];
 
 const LABEL = { "5k": "5 km", "10k": "10 km", half: "Half marathon", marathon: "Marathon" };
@@ -15,6 +21,8 @@ const TRUST = ["high", "fair", "low"];
 const DISCLAIMER = {
   "race-predictor":
     "Predicted from Garmin's fastest splits with Daniels' VDOT tables, assuming a flat road race run all out and training for the distance; an estimate, not a promise.",
+  "trail-predictor":
+    "Predicted from your own events: a power curve on effort-km (km + D+ / 100) for the time on the move, plus stops that grow with it; terrain, weather, night and aid stations move a trail time far more than a road one; an estimate, not a promise.",
   "load-check":
     "Based on Garmin's activity and wellness summaries; a warning light, not a diagnosis, and not medical advice.",
   "weekly-review": "Based on Garmin's activity and wellness summaries; not medical advice.",
@@ -37,6 +45,7 @@ const NOTES = {
     trend: text,
     sharpen: text,
   },
+  "trail-predictor": { headline: text, takeaway: text, reading: texts, sharpen: optional },
   "load-check": {
     verdict: (v) => VERDICTS.includes(v),
     takeaway: text,
@@ -166,8 +175,23 @@ function aerobicProgress(m) {
   };
 }
 
+function trailPredictor(m) {
+  const t = m.trail;
+  if (!t?.fit) throw new Error("trail-predictor: under 3 events in the last 3 years, no curve");
+  return {
+    from: t.from,
+    fit: t.fit,
+    events: t.events,
+    training: t.training,
+    races: t.races,
+    grid: t.grid,
+    curve: t.curve,
+  };
+}
+
 const PICK = {
   "race-predictor": racePredictor,
+  "trail-predictor": trailPredictor,
   "load-check": loadCheck,
   "weekly-review": weeklyReview,
   "aerobic-progress": aerobicProgress,
