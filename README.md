@@ -65,6 +65,20 @@ browser ──/api/garmin/*──▶ Vite dev server ──Bearer token──▶
 | `npm run lint`          | ESLint                                               |
 | `npm run format`        | Prettier                                             |
 | `npm run icons`         | Writes `public/` icons from `src/theme/mark.js`      |
+| `npm run export`        | Writes your history and its sums to `data/` (local)  |
+
+## Insights with Claude Code
+
+`npm run export` reads your whole history with the key in `.env` and writes two files to
+`data/` (gitignored): `activities.json`, the history, and `metrics.json`, the weekly, monthly
+and yearly sums the app shows (`src/utils/insights.js`). The skills in `.claude/skills/` read
+`metrics.json` and only interpret it; they never compute their own numbers:
+
+| Skill              | Ask it                                                   |
+| ------------------ | -------------------------------------------------------- |
+| `weekly-review`    | How did this week go, against the 4 weeks before?        |
+| `load-check`       | Is my load rising too fast? Load ratio, volume jumps, Z3 |
+| `aerobic-progress` | Am I getting fitter? Easy-run efficiency month by month  |
 
 ## Project layout
 

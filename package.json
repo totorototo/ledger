@@ -1,5 +1,5 @@
 {
-  "name": "garmin-web",
+  "name": "ledger",
   "private": true,
   "version": "0.1.0",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "export": "node scripts/export.mjs"
   },
   "dependencies": {
     "@styled-icons/feather": "10.47.0",

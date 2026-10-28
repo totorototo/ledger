@@ -1,0 +1,173 @@
+// The numbers the insight skills (.claude/skills) read, written to data/metrics.json by
+// `npm run export`. Pure, and built only from the sums the pages use (metrics.js, training.js,
+// yearStats.js): a skill interprets these numbers, it never computes its own, so what it says
+// matches what the app shows. Distances in km, times in hours, climb in m, all rounded.
+
+import {
+  addDays,
+  dayOf,
+  intensity,
+  isEasy,
+  isRun,
+  loadSeries,
+  screen,
+  weekStart,
+} from "./metrics.js";
+import { monthly, weeklyLoad } from "./training.js";
+import { byYear, change, summarize } from "./yearStats.js";
+
+// Bump it when a field changes meaning or goes: the skills name the version they read.
+export const METRICS_VERSION = 1;
+
+const round = (value, digits = 1) =>
+  Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
+
+const inRange = (from, until) => (a) => dayOf(a) >= from && dayOf(a) <= until;
+
+// What a period holds, in the units a person reads: every sport, then running alone.
+export function volume(activities) {
+  const { totals } = summarize(activities);
+  const runs = summarize(activities.filter(isRun)).totals;
+  return {
+    count: totals.count,
+    km: round(totals.distance / 1000),
+    hours: round(totals.duration / 3600),
+    climbM: round(totals.elevationGain, 0),
+    runs: runs.count,
+    runKm: round(runs.distance / 1000),
+    load: round(
+      activities.reduce((sum, a) => sum + (Number(a.activityTrainingLoad) || 0), 0),
+      0,
+    ),
+  };
+}
+
+// One line per session, for a skill to name the ones that stand out.
+export function session(activity) {
+  return {
+    date: dayOf(activity),
+    name: activity.activityName ?? null,
+    type: activity.activityType?.typeKey ?? null,
+    km: round((activity.distance ?? 0) / 1000),
+    hours: round((activity.duration ?? 0) / 3600, 2),
+    climbM: round(activity.elevationGain, 0),
+    averageHR: activity.averageHR ?? null,
+    load: round(activity.activityTrainingLoad, 0),
+    easy: isEasy(activity),
+  };
+}
+
+// The 7 days to `until` against the 28 before them, per week: what weekly-review reads.
+// `first` is the history's first day: the average is per week the history covers, so a new
+// account's isn't diluted by weeks before its first activity.
+function lastWeek(activities, until, first) {
+  const from = addDays(until, -6);
+  const week = activities.filter(inRange(from, until));
+  const start = addDays(from, -28);
+  const before = volume(activities.filter(inRange(start, addDays(from, -1))));
+  const covered = Array.from({ length: 28 }, (_, i) => addDays(start, i)).filter(
+    (day) => day >= first,
+  ).length;
+  const weeks = covered / 7;
+  const average = Object.fromEntries(
+    Object.entries(before).map(([key, value]) => [key, weeks > 0 ? round(value / weeks) : 0]),
+  );
+  const now = volume(week);
+  return {
+    from,
+    until,
+    volume: now,
+    previous4WeeksAverage: average,
+    // How many of those 4 weeks the history covers (fractional): under 4 on a new account.
+    weeksCovered: round(weeks),
+    change: {
+      km: change(now.km, average.km),
+      hours: change(now.hours, average.hours),
+      load: change(now.load, average.load),
+    },
+    load: loadSeries(activities, [until])[0],
+    intensity: intensity(week),
+    sessions: week.map(session),
+  };
+}
+
+// The whole history, screened, summed per week, month and year up to `until` ("YYYY-MM-DD").
+export function insights(history, until) {
+  // Nothing past `until`: an export taken on a day reads as it did on that day. Cut before
+  // screening, so `coverage.activities` and `kept` count the same period.
+  const period = history.filter((a) => dayOf(a) && dayOf(a) <= until);
+  const { activities, faults } = screen(period);
+  const days = activities.map(dayOf).filter(Boolean).sort();
+  if (!days.length) return { version: METRICS_VERSION, until, empty: true };
+  const first = days[0];
+  const runs = activities.filter(isRun);
+
+  const perWeek = new Map();
+  for (const a of activities) {
+    const key = weekStart(dayOf(a));
+    if (!perWeek.has(key)) perWeek.set(key, []);
+    perWeek.get(key).push(a);
+  }
+  const weeks = weeklyLoad(activities, first, until).map(
+    ({ key, acute, chronic, ratio }, i, all) => {
+      const list = perWeek.get(key) ?? [];
+      const totals = volume(list);
+      const previous = i > 0 ? volume(perWeek.get(all[i - 1].key) ?? []) : null;
+      return {
+        week: key,
+        ...totals,
+        kmChange: previous ? change(totals.km, previous.km) : null,
+        acute,
+        chronic,
+        ratio,
+        intensity: intensity(list),
+        // The week ends after `until`: its totals and `kmChange` are of the days so far.
+        partial: addDays(key, 6) > until,
+      };
+    },
+  );
+
+  const perMonth = new Map();
+  for (const a of activities) {
+    const key = dayOf(a).slice(0, 7);
+    if (!perMonth.has(key)) perMonth.set(key, []);
+    perMonth.get(key).push(a);
+  }
+  const months = monthly(activities, first, until).map((m) => ({
+    month: m.key,
+    ...volume(perMonth.get(m.key) ?? []),
+    easyRuns: m.easyRuns,
+    efficiency: m.efficiency,
+    intensity: m.intensity,
+  }));
+
+  const years = byYear(activities, Number(until.slice(0, 4))).map(({ year, activities: list }) => ({
+    year,
+    ...volume(list),
+    sports: summarize(list).sports.map((s) => ({
+      type: s.typeKey,
+      count: s.count,
+      km: round(s.distance / 1000),
+      hours: round(s.duration / 3600),
+    })),
+  }));
+
+  return {
+    version: METRICS_VERSION,
+    until,
+    first,
+    coverage: {
+      activities: period.length,
+      kept: activities.length,
+      withLoad: activities.filter((a) => a.activityTrainingLoad > 0).length,
+      runs: runs.length,
+      runsWithHR: runs.filter((a) => a.averageHR > 0).length,
+      runsWithZones: runs.filter((a) => a.hrTimeInZone_1 != null).length,
+    },
+    faults,
+    lastWeek: lastWeek(activities, until, first),
+    weeks,
+    months,
+    years,
+  };
+}

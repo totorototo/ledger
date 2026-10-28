@@ -13,6 +13,8 @@ coverage
 *.fit
 *.zip
 *.gpx
+# npm run export's history and metrics, read by the insight skills.
+data/
 
 # Claude Code per-machine settings
 .claude/settings.local.json
