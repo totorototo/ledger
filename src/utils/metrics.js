@@ -21,7 +21,7 @@ export function weekStart(iso) {
 const num = (value) => (Number.isFinite(value) ? value : 0);
 const round = (value, digits = 1) =>
   Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
-const median = (values) => {
+export const median = (values) => {
   const list = values.filter(Number.isFinite).sort((a, b) => a - b);
   if (!list.length) return null;
   const mid = list.length >> 1;

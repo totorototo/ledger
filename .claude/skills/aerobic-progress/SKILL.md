@@ -27,6 +27,9 @@ yourself**: quote it, or say it isn't there. Your job is to interpret.
 | `easyRuns`       | how many easy runs (≥ 80% of HR time in Z1–2) that median rests on                                                                                       |
 | `runKm`, `hours` | the month's volume, to set efficiency against                                                                                                            |
 | `intensity`      | `easyPct` / `moderatePct` / `hardPct` % of heart-rate time                                                                                               |
+| `cadence`        | median steps per minute over **every** run of the month (not only easy ones)                                                                             |
+| `power`          | median average power (W) over every run with power; `runsWithPower` says how many                                                                        |
+| `hrv`            | the month's nights: `average` (ms), `belowBand` / `aboveBand` against the runner's own band; null with no reading                                        |
 
 Also `coverage.runsWithHR` and `coverage.runsWithZones` against `coverage.runs`: runs without
 zones can't be classed as easy, so they never count.
@@ -43,6 +46,16 @@ zones can't be classed as easy, so they never count.
   for three months or more, or a year-on-year change above about 5%, is worth naming. These
   thresholds are a reading guide for this metric, not published cut-offs: say so if asked.
 - **Thin months:** a month on 3–4 easy runs is weak evidence. Say how many runs a claim rests on.
+- **Where efficiency has gaps** (no easy runs), `cadence` and `power` carry on, but they are
+  over every run: a month of harder running has higher power for that reason alone. Read
+  them with `intensity`, and as context, never as a fitness verdict by themselves. Power
+  before mid-2023 rests on few runs (`runsWithPower`).
+- **Terrain moves cadence most:** long trail runs and ultras include walking, so their
+  cadence (and power) sits far under road running's. A month of a few long trail runs (high
+  `runKm` over few `runs`) isn't comparable with a road month: say so rather than call it a
+  drop.
+- **HRV over months:** a monthly `average` rising with fewer nights under band is the
+  recovery side of getting fitter; it starts at `coverage.hrvFirst`.
 - **Context:** set efficiency next to `runKm`. A rise after a block of steady volume is the
   classic aerobic-base signal; a rise while volume collapsed may be fewer, flatter, cooler runs.
 
@@ -54,8 +67,8 @@ zones can't be classed as easy, so they never count.
 Latest: <efficiency> m/min per beat in <month> (<easyRuns> easy runs)
 Same month last year: <efficiency or "no data"> → <better / worse / about the same>
 
-| Month | Efficiency | Easy runs | Run km |
-|-------|------------|-----------|--------|
+| Month | Efficiency | Easy runs | Run km | Cadence | Power | HRV |
+|-------|------------|-----------|--------|---------|-------|-----|
 (last 12 months, gaps shown as —)
 
 **Trend**

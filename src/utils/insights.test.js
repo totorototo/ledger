@@ -1,5 +1,5 @@
 import { activity } from "../test/fixtures.js";
-import { insights, session, volume } from "./insights.js";
+import { effects, hrvSummary, insights, session, volume } from "./insights.js";
 
 // An easy 10 km run on `day`: 90% of its heart-rate time in Z1–Z2.
 const easyRun = (id, day, overrides = {}) =>
@@ -49,6 +49,37 @@ describe("session", () => {
       hours: 1,
       load: 60,
       easy: true,
+    });
+  });
+});
+
+describe("hrvSummary", () => {
+  const night = (date, lastNightAvg) => ({
+    date,
+    lastNightAvg,
+    balancedLow: 32,
+    balancedUpper: 46,
+  });
+
+  it("counts the nights under and over the balanced band", () => {
+    expect(
+      hrvSummary([night("2026-10-20", 30), night("2026-10-21", 40), night("2026-10-22", 50)]),
+    ).toEqual({ nights: 3, average: 40, belowBand: 1, aboveBand: 1 });
+  });
+
+  it("is null with no night: no reading isn't a low one", () => {
+    expect(hrvSummary([])).toBeNull();
+  });
+});
+
+describe("effects", () => {
+  it("counts sessions by Garmin's label, leaving the unlabelled out", () => {
+    const labelled = (id, label) => activity({ activityId: id, trainingEffectLabel: label });
+    expect(
+      effects([labelled(1, "TEMPO"), labelled(2, "TEMPO"), labelled(3), labelled(4, "RECOVERY")]),
+    ).toEqual({
+      TEMPO: 2,
+      RECOVERY: 1,
     });
   });
 });
@@ -138,5 +169,65 @@ describe("insights", () => {
     expect(result.faults).toEqual([
       expect.objectContaining({ date: "2026-10-21", fault: "speed" }),
     ]);
+  });
+
+  it("adds each week's and the last 7 days' HRV, when given", () => {
+    const nights = ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-25"].map((date, i) => ({
+      date,
+      lastNightAvg: [40, 30, 31, 44][i],
+      weeklyAvg: 38,
+      status: "BALANCED",
+      balancedLow: 32,
+      balancedUpper: 46,
+    }));
+    const result = insights(history, "2026-10-25", { hrv: nights });
+    expect(result.weeks.at(-1).hrv).toEqual({
+      nights: 3,
+      average: 35,
+      belowBand: 2,
+      aboveBand: 0,
+    });
+    expect(result.weeks.at(-2).hrv).toEqual({
+      nights: 1,
+      average: 40,
+      belowBand: 0,
+      aboveBand: 0,
+    });
+    expect(result.weeks[0].hrv).toBeNull();
+    expect(result.lastWeek.hrv).toMatchObject({ nights: 3, belowBand: 2 });
+    expect(result.lastWeek.hrv.days.map((d) => d.date)).toEqual([
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-25",
+    ]);
+    expect(result.months[1].hrv).toMatchObject({ nights: 4 });
+    expect(result.coverage).toMatchObject({
+      hrvNights: 4,
+      hrvFirst: "2026-10-18",
+    });
+    // Without HRV, its fields are null rather than zero.
+    expect(insights(history, "2026-10-25").lastWeek.hrv).toBeNull();
+  });
+
+  it("gives each month its runs' cadence and power, and each session its training effect", () => {
+    const withPower = history.map((a, i) => ({
+      ...a,
+      averageRunningCadenceInStepsPerMinute: 170 + (i % 3),
+      avgPower: i < 6 ? undefined : 250,
+      trainingEffectLabel: "AEROBIC_BASE",
+      aerobicTrainingEffect: 2.84,
+    }));
+    const { months, lastWeek, coverage } = insights(withPower, "2026-10-25");
+    expect(months[1]).toMatchObject({
+      cadence: 171,
+      power: 250,
+      runsWithPower: 9,
+    });
+    expect(lastWeek.effects).toEqual({ AEROBIC_BASE: 3 });
+    expect(lastWeek.sessions[0]).toMatchObject({
+      effect: "AEROBIC_BASE",
+      aerobicTE: 2.8,
+    });
+    expect(coverage).toMatchObject({ runsWithPower: 9, withEffect: 15 });
   });
 });

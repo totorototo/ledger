@@ -19,16 +19,22 @@ it isn't there. Your job is to interpret.
 ## 2. Read
 
 The last 8 entries of `weeks[]` (Monday-start weeks, the last one ends at `until` and may be
-partial), plus `lastWeek.load` for the rolling 7 days to today:
+partial), plus `lastWeek.load` and `lastWeek.hrv` for the rolling 7 days to today:
 
-| Field                                    | Meaning                                                                       |
-| ---------------------------------------- | ----------------------------------------------------------------------------- |
-| `week`                                   | the Monday it starts                                                          |
-| `km`, `hours`, `climbM`, `runKm`, `load` | the week's totals (every sport; `runKm` running only)                         |
-| `kmChange`                               | `km` against the week before, "+35%"                                          |
-| `acute`, `chronic`, `ratio`              | at the week's end: 7-day load, 28-day load per week, their ratio              |
-| `intensity`                              | `easyPct` / `moderatePct` / `hardPct` % of heart-rate time (Z1–2 / Z3 / Z4–5) |
-| `partial`                                | true when the week ends after `until`: its totals are of the days so far      |
+| Field                                    | Meaning                                                                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `week`                                   | the Monday it starts                                                                                                                                |
+| `km`, `hours`, `climbM`, `runKm`, `load` | the week's totals (every sport; `runKm` running only)                                                                                               |
+| `kmChange`                               | `km` against the week before, "+35%"                                                                                                                |
+| `acute`, `chronic`, `ratio`              | at the week's end: 7-day load, 28-day load per week, their ratio                                                                                    |
+| `intensity`                              | `easyPct` / `moderatePct` / `hardPct` % of heart-rate time (Z1–2 / Z3 / Z4–5)                                                                       |
+| `partial`                                | true when the week ends after `until`: its totals are of the days so far                                                                            |
+| `hrv`                                    | `nights`, `average` (ms), `belowBand` / `aboveBand`: nights outside the balanced band of the runner's own baseline (Garmin's); null with no reading |
+| `effects`                                | sessions per Garmin training-effect label (`TEMPO`, `RECOVERY`…)                                                                                    |
+
+`lastWeek.hrv.days[]` has each night: `date`, `lastNightAvg`, `status` (Garmin's: `BALANCED`,
+`UNBALANCED`, `LOW`…), `balancedLow`, `balancedUpper`. `coverage.hrvFirst` is the first night
+with a reading: before it, `hrv` is null and HRV says nothing.
 
 Check `coverage.withLoad` against `coverage.kept`: if many activities have no load, the ratio
 understates the real load: say so.
@@ -44,6 +50,7 @@ Raise a flag for each that holds, quoting the week and the numbers:
 | Volume jump          | `kmChange` > +30% on a week of more than 2 h | Nielsen et al., _J Orthop Sports Phys Ther_ 2014: novice runners who raised weekly distance more than 30% were injured more often |
 | Grey-zone drift      | `intensity.moderatePct` > 30% for 3+ weeks   | Seiler 2010: ~80% easy is the norm in endurance sport                                                                             |
 | Abrupt drop          | `ratio` < 0.6                                | not a risk in itself: ask whether it was planned (illness, injury, taper)                                                         |
+| HRV under band       | `hrv.belowBand` ≥ 3 nights in a week         | Plews et al., _Sports Med_ 2013: HRV falling under the athlete's own baseline is the sign the load isn't being absorbed           |
 
 The "10% rule" has little evidence behind it (Buist et al., _Am J Sports Med_ 2008): don't
 cite it as a rule.
@@ -65,13 +72,16 @@ About now only, one of:
 - **Steady:** no flag now, `lastWeek.load.ratio` 0.8–1.3.
 - **Lighter:** `lastWeek.load.ratio` under 0.8 and no rising flag now (spike, sustained high
   ratio, volume jump). Not a warning: ask whether it was planned.
-- **Watch:** one rising flag now, or a ratio of 1.3–1.5.
-- **Overreaching risk:** a load spike now, plus a volume jump or a sustained high ratio now.
+- **Watch:** one rising flag now with HRV in its band (or no HRV), a ratio of 1.3–1.5, or
+  HRV under band now without rising load (illness, stress, sleep: ask).
+- **Overreaching risk:** a rising flag now **and** HRV under band now; or, with no HRV, a
+  load spike now plus a volume jump or a sustained high ratio now.
 
-Abrupt drop and grey-zone drift never raise the verdict past Watch.
+Abrupt drop and grey-zone drift never raise the verdict past Watch. A rising flag with HRV in
+its band says the load is being absorbed so far: say so, it's the most useful line here.
 
-Be honest about what the data can't show: no sleep, HRV, resting heart rate or soreness
-(the Personal API's activity list doesn't carry them). Overreaching is felt before it shows
+Be honest about what the data can't show: no sleep, resting heart rate or soreness (not
+exported yet), and no HRV before `coverage.hrvFirst`. Overreaching is felt before it shows
 in load: invite the runner to weigh how they feel.
 
 ## 5. Write
@@ -80,9 +90,10 @@ in load: invite the runner to weigh how they feel.
 **Load check, <until>** — <Steady | Lighter | Watch | Overreaching risk>
 
 Load ratio now <lastWeek.load.ratio> (7-day <acute> / 28-day <chronic> per week)
+HRV last 7 nights: <average> ms, <belowBand> under / <aboveBand> over band (or "no reading")
 
-| Week | km | h | Load | Ratio | Δ km | Easy % |
-|------|----|---|------|-------|------|--------|
+| Week | km | h | Load | Ratio | Δ km | Easy % | HRV (under band) |
+|------|----|---|------|-------|------|--------|------------------|
 (last 8 weeks, oldest first; a partial week marked "(so far)")
 
 **Now**

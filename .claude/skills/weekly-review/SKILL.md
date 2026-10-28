@@ -20,15 +20,17 @@ it isn't there. Your job is to interpret.
 
 All under `lastWeek` (the 7 days `from`–`until`, every sport, Garmin's faults screened out):
 
-| Field                   | Meaning                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `volume`                | `count`, `km`, `hours`, `climbM`, `runs`, `runKm`, `load` (Garmin's training load, summed)              |
-| `previous4WeeksAverage` | the same fields, averaged per week over the 28 days before `from` (only the weeks the history covers)   |
-| `weeksCovered`          | how many of those 4 weeks the history covers; under 4 on a new account: say the average rests on less   |
-| `change`                | `km`, `hours`, `load` as "+12%", "−8%", "±0%"; null when the 4 weeks were empty                         |
-| `load`                  | `acute` (7-day load), `chronic` (28-day load per week), `ratio` (acute / chronic)                       |
-| `intensity`             | `hours` with heart rate, and `easyPct` / `moderatePct` / `hardPct` as % of that time (Z1–2 / Z3 / Z4–5) |
-| `sessions[]`            | `date`, `name`, `type`, `km`, `hours`, `climbM`, `averageHR`, `load`, `easy` (≥ 80% of HR time in Z1–2) |
+| Field                   | Meaning                                                                                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `volume`                | `count`, `km`, `hours`, `climbM`, `runs`, `runKm`, `load` (Garmin's training load, summed)                                                                                                        |
+| `previous4WeeksAverage` | the same fields, averaged per week over the 28 days before `from` (only the weeks the history covers)                                                                                             |
+| `weeksCovered`          | how many of those 4 weeks the history covers; under 4 on a new account: say the average rests on less                                                                                             |
+| `change`                | `km`, `hours`, `load` as "+12%", "−8%", "±0%"; null when the 4 weeks were empty                                                                                                                   |
+| `load`                  | `acute` (7-day load), `chronic` (28-day load per week), `ratio` (acute / chronic)                                                                                                                 |
+| `intensity`             | `hours` with heart rate, and `easyPct` / `moderatePct` / `hardPct` as % of that time (Z1–2 / Z3 / Z4–5)                                                                                           |
+| `sessions[]`            | `date`, `name`, `type`, `km`, `hours`, `climbM`, `averageHR`, `load`, `easy` (≥ 80% of HR time in Z1–2), `effect` (Garmin's label: `TEMPO`, `RECOVERY`…), `aerobicTE` / `anaerobicTE` (0–5)       |
+| `effects`               | sessions per `effect` label                                                                                                                                                                       |
+| `hrv`                   | `nights`, `average` (ms), `belowBand` / `aboveBand` against the runner's own balanced band, and `days[]` (`date`, `lastNightAvg`, `status`, `balancedLow`, `balancedUpper`); null with no reading |
 
 Also check `coverage` (how many activities carry load or heart rate) and `faults` dated in
 the week: mention them if they change the picture.
@@ -43,6 +45,12 @@ the week: mention them if they change the picture.
 - **Intensity:** endurance athletes typically spend about 80% of their time easy (Seiler,
   _Int J Sports Physiol Perform_ 2010). Point out a week far below that (a lot of Z3 "grey
   zone") without calling it wrong: one week is one week.
+- **HRV:** nights in the band mean the week was absorbed; three or more under it, with a
+  heavier week, mean it wasn't yet (Plews et al., _Sports Med_ 2013). Under band on a light
+  week points away from training (illness, stress, sleep): say that, don't guess which.
+- **Session labels:** set `effects` beside the intensity split. A week of mostly `TEMPO` or
+  `THRESHOLD` labels is the grey zone by another name; `RECOVERY` and `AEROBIC_BASE` are the
+  easy end.
 - **Notable sessions:** the longest by time, the biggest climb, the highest load, any hard
   session (`easy: false`). Two or three at most.
 - Takeaways: one or two, concrete, about the coming week ("keep next week near this
@@ -57,9 +65,11 @@ the week: mention them if they change the picture.
 vs 4-week average: km <change.km> · time <change.hours> · load <change.load>
 Load ratio <ratio> (7-day <acute> / 28-day <chronic> per week)
 Intensity: <easyPct>% easy · <moderatePct>% moderate · <hardPct>% hard
+Sessions: <effects, as "2 tempo · 1 recovery">
+HRV: <average> ms, <belowBand> nights under / <aboveBand> over band (or "no reading")
 
 **Stand-out sessions**
-- <date> <name>: <why it stands out, with its numbers>
+- <date> <name> (<effect>): <why it stands out, with its numbers>
 
 **Takeaways**
 1. …

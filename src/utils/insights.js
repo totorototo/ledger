@@ -10,6 +10,7 @@ import {
   isEasy,
   isRun,
   loadSeries,
+  median,
   screen,
   weekStart,
 } from "./metrics.js";
@@ -42,6 +43,30 @@ export function volume(activities) {
   };
 }
 
+// A run of nights ({ date, lastNightAvg, status, balancedLow, balancedUpper }, from
+// server/export.js): how many, their mean, and how many fell under or over the balanced band
+// of the athlete's own baseline. Null with no night: no reading is not a low one.
+// why count against Garmin's band, not a baseline of ours: it is the one the watch shows.
+export function hrvSummary(nights) {
+  if (!nights.length) return null;
+  const banded = nights.filter((n) => n.balancedLow != null && n.balancedUpper != null);
+  return {
+    nights: nights.length,
+    average: round(nights.reduce((sum, n) => sum + n.lastNightAvg, 0) / nights.length, 0),
+    belowBand: banded.filter((n) => n.lastNightAvg < n.balancedLow).length,
+    aboveBand: banded.filter((n) => n.lastNightAvg > n.balancedUpper).length,
+  };
+}
+
+// How many sessions Garmin labelled each way ("TEMPO", "RECOVERY"…); unlabelled ones left out.
+export function effects(activities) {
+  const counts = {};
+  for (const a of activities)
+    if (a.trainingEffectLabel)
+      counts[a.trainingEffectLabel] = (counts[a.trainingEffectLabel] ?? 0) + 1;
+  return counts;
+}
+
 // One line per session, for a skill to name the ones that stand out.
 export function session(activity) {
   return {
@@ -54,13 +79,16 @@ export function session(activity) {
     averageHR: activity.averageHR ?? null,
     load: round(activity.activityTrainingLoad, 0),
     easy: isEasy(activity),
+    effect: activity.trainingEffectLabel ?? null,
+    aerobicTE: round(activity.aerobicTrainingEffect),
+    anaerobicTE: round(activity.anaerobicTrainingEffect),
   };
 }
 
 // The 7 days to `until` against the 28 before them, per week: what weekly-review reads.
 // `first` is the history's first day: the average is per week the history covers, so a new
 // account's isn't diluted by weeks before its first activity.
-function lastWeek(activities, until, first) {
+function lastWeek(activities, until, first, nights) {
   const from = addDays(until, -6);
   const week = activities.filter(inRange(from, until));
   const start = addDays(from, -28);
@@ -73,6 +101,7 @@ function lastWeek(activities, until, first) {
     Object.entries(before).map(([key, value]) => [key, weeks > 0 ? round(value / weeks) : 0]),
   );
   const now = volume(week);
+  const weekNights = nights.filter((n) => n.date >= from && n.date <= until);
   return {
     from,
     until,
@@ -87,12 +116,26 @@ function lastWeek(activities, until, first) {
     },
     load: loadSeries(activities, [until])[0],
     intensity: intensity(week),
+    effects: effects(week),
+    hrv: weekNights.length
+      ? {
+          ...hrvSummary(weekNights),
+          days: weekNights.map(({ date, lastNightAvg, status, balancedLow, balancedUpper }) => ({
+            date,
+            lastNightAvg,
+            status,
+            balancedLow,
+            balancedUpper,
+          })),
+        }
+      : null,
     sessions: week.map(session),
   };
 }
 
 // The whole history, screened, summed per week, month and year up to `until` ("YYYY-MM-DD").
-export function insights(history, until) {
+// `hrv` is every night's reading (server/export.js's readHrv); without it, HRV fields are null.
+export function insights(history, until, { hrv = [] } = {}) {
   // Nothing past `until`: an export taken on a day reads as it did on that day. Cut before
   // screening, so `coverage.activities` and `kept` count the same period.
   const period = history.filter((a) => dayOf(a) && dayOf(a) <= until);
@@ -101,6 +144,10 @@ export function insights(history, until) {
   if (!days.length) return { version: METRICS_VERSION, until, empty: true };
   const first = days[0];
   const runs = activities.filter(isRun);
+  const nights = hrv
+    .filter((n) => n.date <= until && n.lastNightAvg != null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const nightsIn = (from, to) => nights.filter((n) => n.date >= from && n.date <= to);
 
   const perWeek = new Map();
   for (const a of activities) {
@@ -121,6 +168,8 @@ export function insights(history, until) {
         chronic,
         ratio,
         intensity: intensity(list),
+        effects: effects(list),
+        hrv: hrvSummary(nightsIn(key, addDays(key, 6))),
         // The week ends after `until`: its totals and `kmChange` are of the days so far.
         partial: addDays(key, 6) > until,
       };
@@ -133,13 +182,22 @@ export function insights(history, until) {
     if (!perMonth.has(key)) perMonth.set(key, []);
     perMonth.get(key).push(a);
   }
-  const months = monthly(activities, first, until).map((m) => ({
-    month: m.key,
-    ...volume(perMonth.get(m.key) ?? []),
-    easyRuns: m.easyRuns,
-    efficiency: m.efficiency,
-    intensity: m.intensity,
-  }));
+  const months = monthly(activities, first, until).map((m) => {
+    const monthRuns = (perMonth.get(m.key) ?? []).filter(isRun);
+    return {
+      month: m.key,
+      ...volume(perMonth.get(m.key) ?? []),
+      easyRuns: m.easyRuns,
+      efficiency: m.efficiency,
+      intensity: m.intensity,
+      // Medians over every run, not only easy ones: they carry on where efficiency has gaps,
+      // so read them with the month's intensity.
+      cadence: round(median(monthRuns.map((a) => a.averageRunningCadenceInStepsPerMinute)), 0),
+      power: round(median(monthRuns.map((a) => a.avgPower)), 0),
+      runsWithPower: monthRuns.filter((a) => a.avgPower > 0).length,
+      hrv: hrvSummary(nightsIn(`${m.key}-01`, `${m.key}-31`)),
+    };
+  });
 
   const years = byYear(activities, Number(until.slice(0, 4))).map(({ year, activities: list }) => ({
     year,
@@ -163,9 +221,13 @@ export function insights(history, until) {
       runs: runs.length,
       runsWithHR: runs.filter((a) => a.averageHR > 0).length,
       runsWithZones: runs.filter((a) => a.hrTimeInZone_1 != null).length,
+      runsWithPower: runs.filter((a) => a.avgPower > 0).length,
+      withEffect: activities.filter((a) => a.trainingEffectLabel).length,
+      hrvNights: nights.length,
+      hrvFirst: nights[0]?.date ?? null,
     },
     faults,
-    lastWeek: lastWeek(activities, until, first),
+    lastWeek: lastWeek(activities, until, first, nights),
     weeks,
     months,
     years,
