@@ -30,9 +30,7 @@ export function createExportClient({
   if (!apiKey) throw new GarminError(503, "GARMIN_PERSONAL_API_KEY is not set in .env.");
   const tokens = createTokenSource({ apiKey, baseUrl, fetch, now });
   const send = (url, token) =>
-    fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-    });
+    fetch(url, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
 
   async function get(path, params) {
     const url = `${baseUrl}${path}${params ? `?${new URLSearchParams(params)}` : ""}`;

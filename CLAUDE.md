@@ -81,6 +81,9 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   the watch happens); the running zones as set now. The skills read HRV against Garmin's
   balanced band, never a baseline of ours; resting HR has no Garmin band, so its baseline is
   the median of the 28 days before (`restingSummary`).
+- `data/plan.md` is the runner's own races, planned blocks and health notes (template
+  `scripts/plan.example.md`), parsed by `parsePlan` (`src/utils/plan.js`): a line it can't read
+  is listed in `plan.ignored`, never dropped silently.
 - `metrics.json` is built only from the pages' own sums (`metrics.js`, `training.js`,
   `yearStats.js`), so a skill's numbers match the app's. Changing a field's meaning or
   removing one means bumping `METRICS_VERSION` and the version the skills check.

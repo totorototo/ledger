@@ -38,12 +38,7 @@ describe("createExportClient", () => {
 
   it("sends the bearer token and pages of 100", async () => {
     const { fetch, calls } = fakeGarmin({ data: () => Response.json([]) });
-    const client = createExportClient({
-      apiKey: "k",
-      baseUrl: BASE,
-      fetch,
-      now: () => 0,
-    });
+    const client = createExportClient({ apiKey: "k", baseUrl: BASE, fetch, now: () => 0 });
     await client.activities(200);
     const get = calls.find((c) => !c.init.method);
     expect(get.url).toContain("start=200&limit=100");
@@ -59,12 +54,7 @@ describe("createExportClient", () => {
           ? Response.json([])
           : new Response("", { status: 401 }),
     });
-    const client = createExportClient({
-      apiKey: "k",
-      baseUrl: BASE,
-      fetch,
-      now: () => 0,
-    });
+    const client = createExportClient({ apiKey: "k", baseUrl: BASE, fetch, now: () => 0 });
     expect(await client.activities(0)).toEqual([]);
   });
 
@@ -72,17 +62,10 @@ describe("createExportClient", () => {
     const { fetch, calls } = fakeGarmin({
       data: (url) =>
         url.pathname.endsWith("/2026-10-01/2026-10-27")
-          ? Response.json({
-              hrvSummaries: [{ calendarDate: "2026-10-27", lastNightAvg: 38 }],
-            })
+          ? Response.json({ hrvSummaries: [{ calendarDate: "2026-10-27", lastNightAvg: 38 }] })
           : new Response(null, { status: 204 }),
     });
-    const client = createExportClient({
-      apiKey: "k",
-      baseUrl: BASE,
-      fetch,
-      now: () => 0,
-    });
+    const client = createExportClient({ apiKey: "k", baseUrl: BASE, fetch, now: () => 0 });
     expect(await client.hrv("2026-10-01", "2026-10-27")).toHaveLength(1);
     expect(await client.hrv("2020-01-01", "2020-12-30")).toEqual([]);
     expect(calls.at(-1).url).toBe(`${BASE}/hrv-service/hrv/daily/2020-01-01/2020-12-30`);
@@ -100,12 +83,7 @@ describe("createExportClient", () => {
               })
             : Response.json([{ sport: "RUNNING" }]),
     });
-    const client = createExportClient({
-      apiKey: "k",
-      baseUrl: BASE,
-      fetch,
-      now: () => 0,
-    });
+    const client = createExportClient({ apiKey: "k", baseUrl: BASE, fetch, now: () => 0 });
     expect(await client.daily("2026-10-27", "2026-10-27")).toHaveLength(1);
     expect(calls.at(-1).url).toBe(
       `${BASE}/usersummary-service/v2/dailysummaries?startDate=2026-10-27&endDate=2026-10-27`,
@@ -115,15 +93,8 @@ describe("createExportClient", () => {
   });
 
   it("throws on Garmin's errors", async () => {
-    const { fetch } = fakeGarmin({
-      data: () => new Response("", { status: 500 }),
-    });
-    const client = createExportClient({
-      apiKey: "k",
-      baseUrl: BASE,
-      fetch,
-      now: () => 0,
-    });
+    const { fetch } = fakeGarmin({ data: () => new Response("", { status: 500 }) });
+    const client = createExportClient({ apiKey: "k", baseUrl: BASE, fetch, now: () => 0 });
     await expect(client.activities(0)).rejects.toThrow("Garmin answered 500.");
   });
 });
@@ -154,12 +125,7 @@ describe("readHrv", () => {
     weeklyAvg: value,
     status: "BALANCED",
     feedbackPhrase: "HRV_BALANCED_6",
-    baseline: {
-      lowUpper: 29,
-      balancedLow: 32,
-      balancedUpper: 46,
-      markerValue: 0.5,
-    },
+    baseline: { lowUpper: 29, balancedLow: 32, balancedUpper: 46, markerValue: 0.5 },
   });
 
   it("reads a year at a time back from `until`, stopping at the first year with no reading", async () => {
@@ -214,10 +180,7 @@ describe("readRestingHr", () => {
         ranges.push([start, end]);
         if (end === "2026-10-27")
           return [
-            {
-              calendarDate: "2026-10-26",
-              heartRate: { restingValue: 55, minValue: 50 },
-            },
+            { calendarDate: "2026-10-26", heartRate: { restingValue: 55, minValue: 50 } },
             { calendarDate: "2026-10-27", heartRate: {} },
           ];
         // Older years carry activity totals, no heart rate.
@@ -282,9 +245,7 @@ describe("readZones", () => {
   });
 
   it("reads the running zones, else the default ones", async () => {
-    const both = {
-      zones: async () => [zones("DEFAULT", 132), zones("RUNNING", 152)],
-    };
+    const both = { zones: async () => [zones("DEFAULT", 132), zones("RUNNING", 152)] };
     expect(await readZones(both)).toEqual({
       sport: "RUNNING",
       method: "HR_MAX",

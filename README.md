@@ -72,7 +72,11 @@ browser ──/api/garmin/*──▶ Vite dev server ──Bearer token──▶
 `npm run export` reads your whole history, nightly HRV, resting heart rate, sleep and running
 zones with the key in `.env` and writes three files to `data/` (gitignored):
 `activities.json`, the history, `wellness.json`, the daily readings, and `metrics.json`, the
-weekly, monthly and yearly sums the app shows plus the readings' (`src/utils/insights.js`). The skills in `.claude/skills/` read
+weekly, monthly and yearly sums the app shows plus the readings' (`src/utils/insights.js`).
+
+For context Garmin doesn't hold (races, planned rest weeks, illness or injury), copy
+`scripts/plan.example.md` to `data/plan.md` and keep it current: the next export adds it to
+`metrics.json`. The skills in `.claude/skills/` read
 `metrics.json` and only interpret it; they never compute their own numbers:
 
 | Skill              | Ask it                                                   |

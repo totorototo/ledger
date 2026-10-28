@@ -8,6 +8,7 @@ import {
   sleepSummary,
   volume,
 } from "./insights.js";
+import { parsePlan } from "./plan.js";
 
 // An easy 10 km run on `day`: 90% of its heart-rate time in Z1–Z2.
 const easyRun = (id, day, overrides = {}) =>
@@ -177,17 +178,8 @@ describe("insights", () => {
   it("sums each week with its load and the change from the week before", () => {
     const { weeks } = insights(history, "2026-10-25");
     expect(weeks).toHaveLength(5);
-    expect(weeks[0]).toMatchObject({
-      week: "2026-09-21",
-      runKm: 30,
-      kmChange: null,
-    });
-    expect(weeks[4]).toMatchObject({
-      week: "2026-10-19",
-      runKm: 30,
-      kmChange: "±0%",
-      ratio: 1,
-    });
+    expect(weeks[0]).toMatchObject({ week: "2026-09-21", runKm: 30, kmChange: null });
+    expect(weeks[4]).toMatchObject({ week: "2026-10-19", runKm: 30, kmChange: "±0%", ratio: 1 });
     expect(weeks[4].partial).toBe(false);
     // On a Wednesday, the week is Monday to Wednesday so far.
     expect(insights(history, "2026-10-21").weeks.at(-1)).toMatchObject({
@@ -211,18 +203,11 @@ describe("insights", () => {
   });
 
   it("leaves out what comes after `until` and reports Garmin's faults", () => {
-    const fast = easyRun(99, "2026-10-21", {
-      distance: 10_000,
-      duration: 1000,
-    });
+    const fast = easyRun(99, "2026-10-21", { distance: 10_000, duration: 1000 });
     const later = easyRun(100, "2026-11-02");
     const result = insights([...history, fast, later], "2026-10-25");
     // `activities` and `kept` count the same period: the later run is cut from both.
-    expect(result.coverage).toMatchObject({
-      activities: 16,
-      kept: 15,
-      runsWithZones: 15,
-    });
+    expect(result.coverage).toMatchObject({ activities: 16, kept: 15, runsWithZones: 15 });
     expect(result.faults).toEqual([
       expect.objectContaining({ date: "2026-10-21", fault: "speed" }),
     ]);
@@ -238,18 +223,8 @@ describe("insights", () => {
       balancedUpper: 46,
     }));
     const result = insights(history, "2026-10-25", { hrv: nights });
-    expect(result.weeks.at(-1).hrv).toEqual({
-      nights: 3,
-      average: 35,
-      belowBand: 2,
-      aboveBand: 0,
-    });
-    expect(result.weeks.at(-2).hrv).toEqual({
-      nights: 1,
-      average: 40,
-      belowBand: 0,
-      aboveBand: 0,
-    });
+    expect(result.weeks.at(-1).hrv).toEqual({ nights: 3, average: 35, belowBand: 2, aboveBand: 0 });
+    expect(result.weeks.at(-2).hrv).toEqual({ nights: 1, average: 40, belowBand: 0, aboveBand: 0 });
     expect(result.weeks[0].hrv).toBeNull();
     expect(result.lastWeek.hrv).toMatchObject({ nights: 3, belowBand: 2 });
     expect(result.lastWeek.hrv.days.map((d) => d.date)).toEqual([
@@ -258,10 +233,7 @@ describe("insights", () => {
       "2026-10-25",
     ]);
     expect(result.months[1].hrv).toMatchObject({ nights: 4 });
-    expect(result.coverage).toMatchObject({
-      hrvNights: 4,
-      hrvFirst: "2026-10-18",
-    });
+    expect(result.coverage).toMatchObject({ hrvNights: 4, hrvFirst: "2026-10-18" });
     // Without HRV, its fields are null rather than zero.
     expect(insights(history, "2026-10-25").lastWeek.hrv).toBeNull();
   });
@@ -275,32 +247,40 @@ describe("insights", () => {
       aerobicTrainingEffect: 2.84,
     }));
     const { months, lastWeek, coverage } = insights(withPower, "2026-10-25");
-    expect(months[1]).toMatchObject({
-      cadence: 171,
-      power: 250,
-      runsWithPower: 9,
-    });
+    expect(months[1]).toMatchObject({ cadence: 171, power: 250, runsWithPower: 9 });
     expect(lastWeek.effects).toEqual({ AEROBIC_BASE: 3 });
-    expect(lastWeek.sessions[0]).toMatchObject({
-      effect: "AEROBIC_BASE",
-      aerobicTE: 2.8,
-    });
+    expect(lastWeek.sessions[0]).toMatchObject({ effect: "AEROBIC_BASE", aerobicTE: 2.8 });
     expect(coverage).toMatchObject({ runsWithPower: 9, withEffect: 15 });
   });
 
-  it("adds resting heart rate, sleep and the zones, when given", () => {
+  it("adds resting heart rate, sleep, the zones and the plan's notes, when given", () => {
     const restingHr = restingDays("2026-09-21", 35, (i) => (i >= 32 ? 60 : 50));
     const sleep = [{ date: "2026-10-24", hours: 6, score: 55 }];
     const zones = { sport: "RUNNING", floors: [94, 113, 152, 162, 169] };
-    const result = insights(history, "2026-10-25", { restingHr, sleep, zones });
+    const plan = parsePlan(`## Races
+- 2026-12-05 Saintélyon
+- 2026-10-01 past race
+## Planned
+- 2026-10-19..2026-10-21 recovery days
+- not dated
+`);
+    const result = insights(history, "2026-10-25", { restingHr, sleep, zones, plan });
     expect(result.weeks.at(-1)).toMatchObject({
       restingHr: { days: 7, baseline: 50, raised: 3 },
       sleep: { nights: 1, under7h: 1 },
+      notes: ["planned: recovery days"],
     });
+    expect(result.weeks.at(-2).notes).toEqual([]);
     expect(result.lastWeek.restingHr.days).toHaveLength(7);
     expect(result.lastWeek.sleep.days).toEqual(sleep);
+    expect(result.lastWeek.notes).toEqual(["planned: recovery days"]);
     expect(result.months[1].restingHr).toMatchObject({ days: 25 });
     expect(result.zones).toBe(zones);
+    expect(result.plan).toEqual({
+      nextRace: { date: "2026-12-05", text: "Saintélyon", daysTo: 41 },
+      races: [{ date: "2026-12-05", text: "Saintélyon", daysTo: 41 }],
+      ignored: ["- not dated"],
+    });
     expect(result.coverage).toMatchObject({
       restingHrDays: 35,
       restingHrFirst: "2026-09-21",
@@ -309,6 +289,7 @@ describe("insights", () => {
     });
     // Without them, null rather than zero.
     const bare = insights(history, "2026-10-25");
-    expect(bare.lastWeek).toMatchObject({ restingHr: null, sleep: null });
+    expect(bare.lastWeek).toMatchObject({ restingHr: null, sleep: null, notes: [] });
+    expect(bare.plan).toBeNull();
   });
 });

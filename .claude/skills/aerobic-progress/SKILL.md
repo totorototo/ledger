@@ -40,6 +40,8 @@ zones can't be classed as easy, so they never count.
 `method`): "easy" is under `floors[2]` bpm today. Garmin keeps no history of them, and each
 run was classed with the zones of its day.
 
+`plan.races` (with a plan): races ahead, for context.
+
 ## 3. Interpret
 
 - **Higher is better:** more ground covered per heartbeat at easy effort. This is the

@@ -5,8 +5,9 @@
 // Output in data/ (gitignored, never committed): activities.json, the trimmed history,
 // wellness.json, each day's HRV, resting heart rate and sleep plus the running zones, and
 // metrics.json, the weekly, monthly and yearly sums of src/utils/insights.js up to today.
+// data/plan.md, when there is one, is the runner's own (template: scripts/plan.example.md).
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,10 +22,12 @@ import {
   readZones,
 } from "../server/export.js";
 import { insights } from "../src/utils/insights.js";
+import { parsePlan } from "../src/utils/plan.js";
 import { today } from "../src/utils/yearStats.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "data");
+const PLAN = join(OUT_DIR, "plan.md");
 
 // The key as vite.config.js reads it: .env at the root, GARMIN_ prefix only.
 const { GARMIN_PERSONAL_API_KEY } = loadEnv("development", ROOT, "GARMIN_");
@@ -46,12 +49,16 @@ try {
   console.log(
     `read ${hrv.length} nights of HRV, ${restingHr.length} days of resting HR, ${sleep.length} nights of sleep`,
   );
+  const plan = existsSync(PLAN) ? parsePlan(readFileSync(PLAN, "utf8")) : null;
+  if (!plan) console.log("no data/plan.md: copy scripts/plan.example.md to add races and notes");
+  else if (plan.ignored.length)
+    console.log(`plan.md: ${plan.ignored.length} line(s) without a date or heading, ignored`);
   mkdirSync(OUT_DIR, { recursive: true });
   const write = (name, value) =>
     writeFileSync(join(OUT_DIR, name), `${JSON.stringify(value, null, 2)}\n`);
   write("activities.json", { until, activities });
   write("wellness.json", { until, hrv, restingHr, sleep, zones });
-  write("metrics.json", insights(activities, until, { hrv, restingHr, sleep, zones }));
+  write("metrics.json", insights(activities, until, { hrv, restingHr, sleep, zones, plan }));
   console.log(
     `wrote activities.json, wellness.json and metrics.json to ${OUT_DIR}, up to ${until}`,
   );

@@ -92,6 +92,23 @@ export function sleepSummary(nights) {
   };
 }
 
+// The plan's entries that overlap `from`–`to`, as "<kind>: <text>".
+const notesIn = (entries, from, to) =>
+  entries.filter((e) => e.from <= to && e.to >= from).map((e) => `${e.kind}: ${e.text}`);
+
+// Days from `from` to `to`, both "YYYY-MM-DD": read as UTC dates, so no zone moves them.
+const daysBetween = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / 864e5);
+
+// The races ahead of `until`, nearest first, with the days to go; the notes the plan couldn't
+// read. Null without a plan.
+function planSummary(plan, until) {
+  if (!plan) return null;
+  const races = plan.entries
+    .filter((e) => e.kind === "race" && e.from >= until)
+    .map((e) => ({ date: e.from, text: e.text, daysTo: daysBetween(until, e.from) }));
+  return { nextRace: races[0] ?? null, races, ignored: plan.ignored };
+}
+
 // How many sessions Garmin labelled each way ("TEMPO", "RECOVERY"…); unlabelled ones left out.
 export function effects(activities) {
   const counts = {};
@@ -125,7 +142,7 @@ const withDays = (summary, days) => summary && { ...summary, days };
 // The 7 days to `until` against the 28 before them, per week: what weekly-review reads.
 // `first` is the history's first day: the average is per week the history covers, so a new
 // account's isn't diluted by weeks before its first activity.
-function lastWeek(activities, until, first, { nights, resting, sleep }) {
+function lastWeek(activities, until, first, { nights, resting, sleep, entries }) {
   const from = addDays(until, -6);
   const week = activities.filter(inRange(from, until));
   const start = addDays(from, -28);
@@ -170,17 +187,18 @@ function lastWeek(activities, until, first, { nights, resting, sleep }) {
       : null,
     restingHr: withDays(restingSummary(resting, from, until), restingDays),
     sleep: withDays(sleepSummary(sleepDays), sleepDays),
+    notes: notesIn(entries, from, until),
     sessions: week.map(session),
   };
 }
 
 // The whole history, screened, summed per week, month and year up to `until` ("YYYY-MM-DD").
 // `hrv`, `restingHr` and `sleep` are the readings server/export.js reads, `zones` the running
-// zones as set now; without one, its fields are null.
+// zones as set now, `plan` parsePlan's result; without one, its fields are null.
 export function insights(
   history,
   until,
-  { hrv = [], restingHr = [], sleep = [], zones = null } = {},
+  { hrv = [], restingHr = [], sleep = [], zones = null, plan = null } = {},
 ) {
   // Nothing past `until`: an export taken on a day reads as it did on that day. Cut before
   // screening, so `coverage.activities` and `kept` count the same period.
@@ -199,6 +217,7 @@ export function insights(
   const resting = upTo(restingHr);
   const slept = upTo(sleep);
   const sleepIn = (from, to) => sleepSummary(slept.filter((n) => n.date >= from && n.date <= to));
+  const entries = plan?.entries ?? [];
 
   const perWeek = new Map();
   for (const a of activities) {
@@ -223,6 +242,7 @@ export function insights(
         hrv: hrvSummary(nightsIn(key, addDays(key, 6))),
         restingHr: restingSummary(resting, key, addDays(key, 6)),
         sleep: sleepIn(key, addDays(key, 6)),
+        notes: notesIn(entries, key, addDays(key, 6)),
         // The week ends after `until`: its totals and `kmChange` are of the days so far.
         partial: addDays(key, 6) > until,
       };
@@ -287,11 +307,8 @@ export function insights(
     },
     faults,
     zones,
-    lastWeek: lastWeek(activities, until, first, {
-      nights,
-      resting,
-      sleep: slept,
-    }),
+    plan: planSummary(plan, until),
+    lastWeek: lastWeek(activities, until, first, { nights, resting, sleep: slept, entries }),
     weeks,
     months,
     years,

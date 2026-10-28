@@ -33,9 +33,15 @@ All under `lastWeek` (the 7 days `from`–`until`, every sport, Garmin's faults 
 | `hrv`                   | `nights`, `average` (ms), `belowBand` / `aboveBand` against the runner's own balanced band, and `days[]` (`date`, `lastNightAvg`, `status`, `balancedLow`, `balancedUpper`); null with no reading |
 | `restingHr`             | `average` (bpm), `baseline` (median of the 28 days before), `raised` (days ≥ 5 bpm over it), `days[]` (`date`, `resting`); null with no reading                                                   |
 | `sleep`                 | `averageHours`, `averageScore` (Garmin's 0–100), `under7h`, `days[]` (`date`, `hours`, `score`); null with no reading                                                                             |
+| `notes`                 | the runner's plan entries overlapping the week: "race: …", "planned: …", "health: …"                                                                                                              |
 
 Also check `coverage` (how many activities carry load or heart rate) and `faults` dated in
 the week: mention them if they change the picture.
+
+`plan` (null without `data/plan.md`): `nextRace` (`date`, `text`, `daysTo`), `races[]`, and
+`ignored`, the plan's lines the export couldn't read: name them so the runner can fix them. Without a plan, say once that
+`scripts/plan.example.md` copied to `data/plan.md` lets the review tell a planned week from
+a slump.
 
 ## 3. Interpret
 
@@ -54,6 +60,9 @@ the week: mention them if they change the picture.
   "not absorbed yet"; nights under 7 h beside HRV under band on a light week point to sleep
   (Hirshkowitz et al., _Sleep Health_ 2015). Resting HR alone is a weak signal (Buchheit,
   _Front Physiol_ 2014): never a verdict by itself.
+- **Plan:** read the week through `notes`: a lighter week marked `planned` or `health` is
+  explained, say so rather than asking. With a `nextRace`, frame the takeaways by `daysTo`
+  (build, taper, race week), without writing a plan.
 - **Session labels:** set `effects` beside the intensity split. A week of mostly `TEMPO` or
   `THRESHOLD` labels is the grey zone by another name; `RECOVERY` and `AEROBIC_BASE` are the
   easy end.
@@ -74,6 +83,7 @@ Intensity: <easyPct>% easy · <moderatePct>% moderate · <hardPct>% hard
 Sessions: <effects, as "2 tempo · 1 recovery">
 HRV: <average> ms, <belowBand> nights under / <aboveBand> over band (or "no reading")
 Resting HR <average> bpm (baseline <baseline>) · Sleep <averageHours> h, score <averageScore>
+Notes: <notes> · Next race: <text> in <daysTo> days (only with a plan)
 
 **Stand-out sessions**
 - <date> <name> (<effect>): <why it stands out, with its numbers>
