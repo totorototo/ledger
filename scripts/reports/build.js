@@ -185,6 +185,7 @@ function trailPredictor(m) {
     from: t.from,
     fit: t.fit,
     assumed: t.assumed,
+    recentForm: t.recentForm,
     events: t.events,
     training: t.training,
     races: t.races,

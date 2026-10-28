@@ -32,6 +32,7 @@ For a flat road race (5 km to marathon), the race-predictor skill answers better
 | `training[]`   | long days (30 effort-km or more) that aren't events, and DNFs (`note` "DNF"): shown, never fitted                                                                                                                                                                                                                                                                                                                                     |
 | `races[]`      | the plan's races ahead: `date`, `text`, `name`, `km`, `climbM`, `effortKm`, `ground`, `groundFitted` (false: its ground was too rare to fit, read as mixed), `time`, `moving`, `stops`, `low`–`high` (the spread around it), `within` (inside the calibrated range); `effortKm` null when the line gives no km or no D+                                                                                                               |
 | `assumed`      | null with a curve. Without one (under 3 events, or events within twice each other's length): `anchor` (`date`, `name`, `effortKm`, `time`), the one event every time scales from, with `exponent` (assumed, not the runner's), `spreadPct` at the anchor's length and `perDoublingPct` added per doubling away; `grid`, `races` and `curve` then scale from it, `moving` and `stops` null                                             |
+| `recentForm`   | `from`, `events`, `pct`: how far the events since `from` (24 months) sit from the curve, on average (− faster); null under 2 such events. `races[].formTime` and `grid[].formTime` are each time at that form, beside it, never instead                                                                                                                                                                                               |
 | `grid[]`       | the model's `time`, `moving`, `stops`, `low`, `high` at 50, 100, 150, 200 and 300 effort-km; `curve[]` is the line the page draws                                                                                                                                                                                                                                                                                                     |
 
 Effort-km is ITRA's: one kilometre per 100 m of climb. `time` is the race clock (Garmin's
@@ -91,8 +92,10 @@ fatigue exponent, not road running's 1.06. Check:
   `spreadPct` (the tags then explain little of the spread). A ground is tagged by the course,
   never by how the race went: suggest a tag only from what the course is. Set a race ahead
   beside the event that looks most like it.
-- **Fitness now.** The curve averages 3 years. If the latest events sit under or over it,
-  form has moved: say which way.
+- **Fitness now.** The curve weighs every event alike, old or new. `recentForm` says how far
+  the last 24 months lean from it: quote its `pct` and `events`, and the `formTime` beside
+  each prediction. On 2 or 3 events, call it a lean, not a measure. It is the races, not the
+  training: a race months away will be run on the training still to come.
 - **Stops.** An event far off the curve may be off on its stops, not its running: compare its
   `moving` and `stops` with another event of its length (a night's sleep, a long aid station).
   A race ahead's `stops` is the runner's usual, not a plan.
@@ -110,8 +113,8 @@ fatigue exponent, not road running's 1.06. Check:
 **Trail predictor, <until>** — curve through <fit.events> events, exponent <exponent>, ±<spreadPct>%
 (without a curve: **scaled from <anchor.name>** (<anchor.effortKm> effort-km in <anchor.time>), exponent <assumed.exponent> assumed, ±<spreadPct>% widening <perDoublingPct> points per doubling)
 
-| Race | Effort-km | Predicted | Range | Trust |
-|------|-----------|-----------|-------|-------|
+| Race | Effort-km | Predicted | On form | Range | Trust |
+|------|-----------|-----------|---------|-------|-------|
 (one row per race ahead; without one, the grid at 50, 100, 200, 300 effort-km)
 
 **Reading it**

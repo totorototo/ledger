@@ -64,6 +64,7 @@
             <th>Effort-km</th>
             <th>Predicted</th>
             <th>Range</th>
+            <th>On form</th>
             <th>Stops</th>
             <th class="text">Curve</th>
           </tr>
@@ -149,6 +150,10 @@
           <div>
             <dt>Calibrated</dt>
             <dd id="range">—</dd>
+          </div>
+          <div id="recent-form" hidden>
+            <dt>Recent form</dt>
+            <dd>—</dd>
           </div>
           <div id="ground-runnable" hidden>
             <dt>Runnable ground</dt>
@@ -258,7 +263,9 @@
     ...ahead.map((r) => ({
       label: r.name,
       value: r.time,
-      sub: `${r.low}–${r.high} · ${r.effortKm} effort-km`,
+      sub: r.formTime
+        ? `${r.low}–${r.high} · ~${r.formTime} on recent form`
+        : `${r.low}–${r.high} · ${r.effortKm} effort-km`,
       anchor: true,
     })),
     ...R.grid
@@ -288,6 +295,7 @@
             el("td", {}, show(r.effortKm)),
             el("td", { className: r.time ? "hi" : "gap" }, show(r.time)),
             el("td", {}, r.time ? `${r.low}–${r.high}` : "—"),
+            el("td", {}, show(r.formTime)),
             el("td", {}, show(r.stops)),
             el(
               "td",
@@ -331,6 +339,14 @@
         row.hidden = false;
         row.querySelector("dd").textContent = `${pace} /km`;
       }
+    }
+    // Recent form: the last 24 months' events against the curve, shown beside the times.
+    const RF = R.recentForm;
+    if (RF) {
+      const row = document.getElementById("recent-form");
+      row.hidden = false;
+      row.querySelector("dd").textContent =
+        `${RF.pct > 0 ? "+" : RF.pct < 0 ? "−" : "±"}${Math.abs(RF.pct)}% · ${RF.events} events since ${fmt.month(RF.from.slice(0, 7))}`;
     }
     // Each fitted ground: its factor on the time on the move against mixed, and its events.
     for (const [g, v] of Object.entries(F.grounds ?? {})) {

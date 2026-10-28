@@ -48,7 +48,8 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   one 30 h race here). A plan race line with a result (`…, 15:26:19` or `…, DNF`) wins over
   the watch: the official course and clock, at any age; a DNF day is never an event. A line may name its ground
   (`runnable`, `technical`): one factor each on the time on the move, against untagged courses. Without a curve (under 3 events, or within twice each other's length),
-  times scale from one event with an assumed exponent (`assumed`), never passed off as fitted. The watch
+  times scale from one event with an assumed exponent (`assumed`), never passed off as fitted. `recentForm` (the last 24 months'
+  events against the curve) sits beside each time as `formTime`, never folded into the fit. The watch
   is no result sheet: a DNF recorded to the drop reads as a slow finish.
 - The cached history (IndexedDB, one entry per account) is merged by `activityId`; only
   Refresh sees an activity edited or deleted on an older day.

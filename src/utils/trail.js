@@ -24,6 +24,13 @@ export const GRID = [50, 100, 150, 200, 300];
 // summaries hold nothing that tells a forest road from a boulder field. The runner does.
 export const GROUNDS = ["runnable", "technical"];
 export const MIN_GROUND = 2;
+// Recent form: how far the events of the last FORM_DAYS sit from the curve, on average, once
+// at least MIN_FORM of them do. Shown beside each time, never folded into it.
+// why beside and not in: weighting recent races into the fit moved the first runner's 280
+// effort-km by 3% while cutting the races that count from 16 to 7; the curve keeps them all,
+// and the form says how far the last two seasons lean from it, on how few races.
+export const FORM_DAYS = 730;
+export const MIN_FORM = 2;
 // With too few events for a curve, a time scales from one of them with an assumed exponent,
 // and a range that starts at ±ASSUMED_SPREAD and widens with each doubling away from it.
 // why 1.15: between road running's 1.06 (Riegel) and the 1.16 to 1.30 this project's first
@@ -372,6 +379,12 @@ export function trailPrediction(activities, until, races = []) {
     }
     return scaled(e);
   };
+  // The mean residual of the recent events, in log: the recent form.
+  const formFrom = addDays(until, -FORM_DAYS);
+  const recent = model ? residuals.filter((_, i) => events[i].date > formFrom) : [];
+  const form = recent.length >= MIN_FORM ? recent.reduce((a, b) => a + b, 0) / recent.length : null;
+  // A time at recent form, beside the curve's.
+  const onForm = (hours) => (form == null || hours == null ? null : hm(hours * Math.exp(form)));
   const ahead = races
     .filter((r) => r.date > until)
     .map((r) => {
@@ -389,6 +402,7 @@ export function trailPrediction(activities, until, races = []) {
         // A ground named but too rare among the events to fit reads as mixed: say so.
         groundFitted: g == null || (curve != null && curve.grounds[g] != null),
         ...(e != null ? at(e, g) : NONE),
+        formTime: e != null ? onForm(at(e, g).hours) : null,
         // Inside the events' range the curve interpolates; outside it, it guesses.
         within: e != null && span != null && e >= span[0] && e <= span[1],
       };
@@ -445,8 +459,15 @@ export function trailPrediction(activities, until, races = []) {
         time: anchor.time,
       },
     },
+    recentForm:
+      form == null
+        ? null
+        : { from: formFrom, events: recent.length, pct: round((Math.exp(form) - 1) * 100, 0) },
     races: ahead,
-    grid: model || anchor ? GRID.map((e) => ({ effortKm: e, ...at(e) })) : [],
+    grid:
+      model || anchor
+        ? GRID.map((e) => ({ effortKm: e, ...at(e), formTime: onForm(at(e).hours) }))
+        : [],
     // The line the page draws, with its band: 25 points from 20 to 400 effort-km, evenly on a
     // log scale.
     curve:

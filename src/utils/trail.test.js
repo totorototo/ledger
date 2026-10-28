@@ -294,6 +294,37 @@ describe("trailPrediction", () => {
   });
 });
 
+describe("trailPrediction, recent form", () => {
+  // Older events on the curve; the last two seasons' 15% under it.
+  const race = (id, day, km, climb, factor) =>
+    trail(id, day, km, climb, onCurve(effortKm(km, climb)) * factor, {
+      eventType: { typeKey: "race" },
+    });
+  const older = [race(1, "2023-12-01", 30, 1000, 1), race(2, "2024-05-01", 150, 5000, 1)];
+  const recent = [race(3, "2025-06-01", 80, 2000, 0.85), race(4, "2026-06-01", 200, 5000, 0.85)];
+  const ahead = [{ date: "2027-06-01", text: "Long One 200 km 4000 m D+" }];
+
+  it("says how far the last 24 months lean from the curve, beside each time", () => {
+    const result = trailPrediction([...older, ...recent], "2026-10-28", ahead);
+    expect(result.recentForm).toMatchObject({ from: "2024-10-28", events: 2 });
+    expect(result.recentForm.pct).toBeLessThan(0);
+    const [race] = result.races;
+    const minutes = (t) => Number(t.split("h")[0]) * 60 + Number(t.split("h")[1]);
+    expect(minutes(race.formTime)).toBeLessThan(minutes(race.time));
+    expect(result.grid[0].formTime).not.toBeNull();
+  });
+
+  it("says nothing on one recent event", () => {
+    const result = trailPrediction(
+      [...older, race(5, "2024-06-01", 60, 1500, 1), recent[1]],
+      "2026-10-28",
+      ahead,
+    );
+    expect(result.recentForm).toBeNull();
+    expect(result.races[0].formTime).toBeNull();
+  });
+});
+
 describe("trailPrediction, too few events for a curve", () => {
   // Two events, too close in length to fit: 100 effort-km in 20 h, 120 in 25 h.
   const two = [
