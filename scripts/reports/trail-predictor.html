@@ -125,18 +125,36 @@
             <dt>Calibrated</dt>
             <dd id="range">—</dd>
           </div>
+          <div id="ground-runnable" hidden>
+            <dt>Runnable ground</dt>
+            <dd>—</dd>
+          </div>
+          <div id="ground-technical" hidden>
+            <dt>Technical ground</dt>
+            <dd>—</dd>
+          </div>
         </dl>
         <p class="note">
           An event is a result from your plan, a race Garmin marks, or a day of 100 effort-km or
           more in the last 3 years; a DNF never is. Outside the calibrated range the curve guesses.
+          A ground is the time on the move against untagged (mixed) courses; the curve and the
+          what-if table are mixed.
         </p>
       </div>
       <div id="terminus-box" hidden>
         <h2 class="section-title ledger-title">In Terminus</h2>
         <dl class="ledger">
           <div>
-            <dt>Base pace</dt>
+            <dt>Base pace, mixed</dt>
             <dd><span data-f="fit.terminus.basePace">—</span> /km</dd>
+          </div>
+          <div id="pace-runnable" hidden>
+            <dt>Base pace, runnable</dt>
+            <dd>—</dd>
+          </div>
+          <div id="pace-technical" hidden>
+            <dt>Base pace, technical</dt>
+            <dd>—</dd>
           </div>
           <div>
             <dt>Fatigue coefficient</dt>
@@ -237,7 +255,7 @@
             "tr",
             {},
             el("td", {}, fmt.short(r.date) + ` ${r.date.slice(2, 4)}`),
-            el("td", { className: "text" }, r.text),
+            el("td", { className: "text" }, r.name),
             el("td", {}, show(r.km)),
             el("td", {}, r.climbM == null ? "—" : `${r.climbM} m`),
             el("td", {}, show(r.effortKm)),
@@ -249,9 +267,12 @@
               { className: "text" },
               r.effortKm == null
                 ? "add km and D+ to the plan line"
-                : r.within
-                  ? "inside"
-                  : "outside: a guess",
+                : [
+                    r.within ? "inside" : "outside: a guess",
+                    r.ground && (r.groundFitted ? r.ground : `${r.ground}, too few to fit`),
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
             ),
           ),
         ),
@@ -266,6 +287,19 @@
     if (F.terminus) {
       document.getElementById("terminus-box").hidden = false;
       document.getElementById("terminus-spread").textContent = `±${F.terminus.spreadPct}%`;
+      for (const [g, pace] of Object.entries(F.terminus.basePaceByGround ?? {})) {
+        const row = document.getElementById(`pace-${g}`);
+        row.hidden = false;
+        row.querySelector("dd").textContent = `${pace} /km`;
+      }
+    }
+    // Each fitted ground: its factor on the time on the move against mixed, and its events.
+    for (const [g, v] of Object.entries(F.grounds ?? {})) {
+      if (!v) continue;
+      const row = document.getElementById(`ground-${g}`);
+      row.hidden = false;
+      row.querySelector("dd").textContent =
+        `${v.pct > 0 ? "+" : v.pct < 0 ? "−" : "±"}${Math.abs(v.pct)}% · ${v.events} events`;
     }
   }
 
@@ -274,7 +308,11 @@
       "tr",
       {},
       el("td", {}, fmt.short(d.date) + ` ${d.date.slice(2, 4)}`),
-      el("td", { className: "text" }, (d.name ?? "—") + (d.note ? ` · ${d.note}` : "")),
+      el(
+        "td",
+        { className: "text" },
+        [d.name ?? "—", d.ground, d.note].filter(Boolean).join(" · "),
+      ),
       el("td", {}, show(d.km, "one")),
       el("td", {}, `${d.climbM} m`),
       el("td", {}, show(d.effortKm)),

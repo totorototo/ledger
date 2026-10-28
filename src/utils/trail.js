@@ -18,6 +18,12 @@ export const ULTRA_EFFORT_KM = 100;
 export const LONG_EFFORT_KM = 30;
 // The effort-km the what-if table reads at.
 export const GRID = [50, 100, 150, 200, 300];
+// The ground a plan line may name. Mixed, or none, is the curve itself; runnable and technical
+// each get a factor on the time on the move, fitted once at least MIN_GROUND events carry it.
+// why a tag and not a measure: effort-km knows distance and climb, never the ground, and the
+// summaries hold nothing that tells a forest road from a boulder field. The runner does.
+export const GROUNDS = ["runnable", "technical"];
+export const MIN_GROUND = 2;
 // Terminus's limits on its settings (gpxz `Settings.validate`).
 export const TERMINUS_FATIGUE_MAX = 0.05;
 
@@ -61,27 +67,75 @@ export function result(text) {
   return { hours: Number(time[1]) + Number(time[2]) / 60 + Number(time[3] ?? 0) / 3600 };
 }
 
-// Least squares of log(hours) on log(effortKm): b, log c, and the spread of the events around
-// the curve (the residuals' standard deviation, in log). Null under 3 events or when they
-// don't span twice the effort: a curve through one length says nothing of another.
+// A race line's ground: "runnable", "technical" (or "roulant", "technique"), else null.
+export function ground(text) {
+  if (/\b(?:technical|technique)\b/i.test(text)) return "technical";
+  if (/\b(?:runnable|roulante?)\b/i.test(text)) return "runnable";
+  return null;
+}
+
+// Solves the square system m · x = v by Gaussian elimination with partial pivoting.
+function solve(m, v) {
+  const n = v.length;
+  const rows = m.map((row, i) => [...row, v[i]]);
+  for (let c = 0; c < n; c++) {
+    const pivot = rows.reduce(
+      (best, row, r) => (r >= c && Math.abs(row[c]) > Math.abs(rows[best][c]) ? r : best),
+      c,
+    );
+    [rows[c], rows[pivot]] = [rows[pivot], rows[c]];
+    for (let r = c + 1; r < n; r++) {
+      const f = rows[r][c] / rows[c][c];
+      for (let k = c; k <= n; k++) rows[r][k] -= f * rows[c][k];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--)
+    x[r] =
+      (rows[r][n] - rows[r].slice(r + 1, n).reduce((s, q, k) => s + q * x[r + 1 + k], 0)) /
+      rows[r][r];
+  return x;
+}
+
+// Least squares of log(hours) on log(effortKm), plus one shift per ground that at least
+// MIN_GROUND events carry: log hours = a + b·log(effortKm) + t[ground]. Returns a, b, `grounds`
+// ({ runnable: t } for the fitted ones), the residuals and their standard deviation, the
+// spread. Null under 3 events or when they don't span twice the effort: a curve through one
+// length says nothing of another.
+// why one curve with shifts, not a curve per ground: the fatigue exponent is the runner's;
+// the ground moves the level, and two SaintéLyon-sized events can't carry a slope.
 export function fitCurve(points) {
   if (points.length < 3) return null;
   const xs = points.map((p) => Math.log(p.effortKm));
-  const ys = points.map((p) => Math.log(p.hours));
   if (Math.max(...xs) - Math.min(...xs) < Math.log(2)) return null;
-  const mean = (list) => list.reduce((a, b) => a + b, 0) / list.length;
-  const mx = mean(xs);
-  const my = mean(ys);
-  const b =
-    xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) /
-    xs.reduce((s, x) => s + (x - mx) ** 2, 0);
-  const a = my - b * mx;
-  const residuals = ys.map((y, i) => y - (a + b * xs[i]));
-  const spread = Math.sqrt(
-    residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, points.length - 2),
+  // A ground needs MIN_GROUND events, the mixed rest as many to be measured against, and the
+  // fit one event more than it has numbers: the rarest ground joins mixed until all three hold.
+  const count = (g) => points.filter((p) => p.ground === g).length;
+  let fitted = GROUNDS.filter((g) => count(g) >= MIN_GROUND);
+  const enough = () =>
+    points.length - fitted.reduce((s, g) => s + count(g), 0) >= MIN_GROUND &&
+    points.length > 2 + fitted.length;
+  while (fitted.length && !enough())
+    fitted = fitted.filter((g) => g !== fitted.reduce((a, b) => (count(b) < count(a) ? b : a)));
+  const row = (p, i) => [1, xs[i], ...fitted.map((g) => (p.ground === g ? 1 : 0))];
+  const X = points.map(row);
+  const ys = points.map((p) => Math.log(p.hours));
+  const k = X[0].length;
+  const xtx = Array.from({ length: k }, (_, r) =>
+    Array.from({ length: k }, (_, c) => X.reduce((s, x) => s + x[r] * x[c], 0)),
   );
-  return { a, b, spread, residuals };
+  const xty = Array.from({ length: k }, (_, r) => X.reduce((s, x, i) => s + x[r] * ys[i], 0));
+  const [a, b, ...shifts] = solve(xtx, xty);
+  const grounds = Object.fromEntries(fitted.map((g, i) => [g, shifts[i]]));
+  const residuals = ys.map((y, i) => y - X[i].reduce((s, x, c) => s + x * [a, b, ...shifts][c], 0));
+  const spread = Math.sqrt(
+    residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, points.length - k),
+  );
+  return { a, b, grounds, spread, residuals };
 }
+
+// The shift of a ground on log moving time: 0 for mixed, none, or a ground too rare to fit.
+const shiftOf = (curve, g) => curve.grounds?.[g] ?? 0;
 
 // The stops as a share of the time on the move that grows with it: stops = r × moving², by
 // least squares through 0. A 3 h race stops for a drink, a 30 h one for aid stations and sleep.
@@ -92,15 +146,15 @@ export function fitStops(points) {
   return Math.max(0, num / den);
 }
 
-// The clock time at `e` effort-km: the curve's moving time, plus its stops.
-const clockAt = (model, e) => {
-  const moving = Math.exp(model.curve.a + model.curve.b * Math.log(e));
+// The clock time at `e` effort-km on ground `g`: the curve's moving time, plus its stops.
+const clockAt = (model, e, g = null) => {
+  const moving = Math.exp(model.curve.a + model.curve.b * Math.log(e) + shiftOf(model.curve, g));
   return { moving, stops: model.stops * moving ** 2 };
 };
 
 // The time at `e` effort-km, with the band the events' spread sets around it.
-const predict = (model, e) => {
-  const { moving, stops } = clockAt(model, e);
+const predict = (model, e, g = null) => {
+  const { moving, stops } = clockAt(model, e, g);
   const hours = moving + stops;
   return {
     hours: round(hours, 2),
@@ -138,6 +192,23 @@ export function fitTerminus(points) {
   };
 }
 
+// Terminus's settings with a base pace per fitted ground: Terminus knows the slope, not the
+// ground, so a technical course runs at the technical base pace.
+function terminusFor(settings, curve) {
+  if (!settings) return null;
+  const pace = (seconds) =>
+    `${Math.floor(Math.round(seconds) / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
+  return {
+    ...settings,
+    basePaceByGround: Object.fromEntries(
+      Object.entries(curve.grounds).map(([g, t]) => [
+        g,
+        pace(settings.basePaceSPerKm * Math.exp(t)),
+      ]),
+    ),
+  };
+}
+
 // The runner's events, the curve through them, and its times for the plan's races ahead and
 // the what-if table. Events are of two kinds:
 // - the plan's past races with a result ("…, 15:26:19", "…, DNF", `result`): the official
@@ -157,6 +228,8 @@ export function trailPrediction(activities, until, races = []) {
     .filter((r) => r.date <= until)
     .map((r) => ({ ...r, ...course(r.text), ...result(r.text) }));
   const planned = new Set(past.map((r) => r.date));
+  // The ground of a day the plan names a race on.
+  const groundOn = new Map(past.map((r) => [r.date, ground(r.text)]));
   const dnf = new Set(past.filter((r) => r.dnf).map((r) => r.date));
   const results = past.filter((r) => r.hours != null);
   const resulted = new Set(results.map((r) => r.date));
@@ -190,6 +263,7 @@ export function trailPrediction(activities, until, races = []) {
         stops: hm(clock - moving),
         speed: round(e / moving, 2),
         why,
+        ground: groundOn.get(dayOf(a)) ?? null,
         // The plan says what the day was: a DNF, or a race whose result stands in for the run.
         note: dnf.has(dayOf(a)) ? "DNF" : resulted.has(dayOf(a)) ? "plan result" : null,
       };
@@ -218,6 +292,7 @@ export function trailPrediction(activities, until, races = []) {
         stops: run ? hm(r.hours - Math.min(run.movingHours, r.hours)) : null,
         speed: round(e / (run ? Math.min(run.movingHours, r.hours) : r.hours), 2),
         why: "result",
+        ground: ground(r.text),
       };
     });
   const events = [...official, ...days.filter((d) => d.why)];
@@ -226,18 +301,21 @@ export function trailPrediction(activities, until, races = []) {
   const stops = fitStops(events.filter((d) => d.movingHours != null));
   const movingOf = (d) =>
     d.movingHours ?? (stops > 0 ? (Math.sqrt(1 + 4 * stops * d.hours) - 1) / (2 * stops) : d.hours);
-  const curve = fitCurve(events.map((d) => ({ effortKm: d.effortKm, hours: movingOf(d) })));
+  const curve = fitCurve(
+    events.map((d) => ({ effortKm: d.effortKm, hours: movingOf(d), ground: d.ground })),
+  );
   // The whole model against the events' clocks: its spread is the band's.
   const model = curve && { curve, stops, spread: 0 };
   const residuals = model
     ? events.map((d) => {
-        const { moving, stops } = clockAt(model, d.effortKm);
+        const { moving, stops } = clockAt(model, d.effortKm, d.ground);
         return Math.log(d.hours / (moving + stops));
       })
     : [];
+  const params = 2 + (curve ? Object.keys(curve.grounds).length : 0);
   if (model)
     model.spread = Math.sqrt(
-      residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, events.length - 2),
+      residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, events.length - params),
     );
   const span = events.length
     ? [Math.min(...events.map((e) => e.effortKm)), Math.max(...events.map((e) => e.effortKm))]
@@ -247,6 +325,7 @@ export function trailPrediction(activities, until, races = []) {
     .map((r) => {
       const { km, climbM } = course(r.text);
       const e = km != null && climbM != null ? effortKm(km, climbM) : null;
+      const g = ground(r.text);
       return {
         date: r.date,
         text: r.text,
@@ -254,8 +333,11 @@ export function trailPrediction(activities, until, races = []) {
         km,
         climbM,
         effortKm: round(e, 0),
+        ground: g,
+        // A ground named but too rare among the events to fit reads as mixed: say so.
+        groundFitted: g == null || (curve != null && curve.grounds[g] != null),
         ...(model && e != null
-          ? predict(model, e)
+          ? predict(model, e, g)
           : { hours: null, time: null, low: null, high: null, moving: null, stops: null }),
         // Inside the events' range the curve interpolates; outside it, it guesses.
         within: e != null && span != null && e >= span[0] && e <= span[1],
@@ -278,8 +360,27 @@ export function trailPrediction(activities, until, races = []) {
       spreadPct: round((Math.exp(model.spread) - 1) * 100, 0),
       fromEffortKm: span[0],
       toEffortKm: span[1],
-      terminus: fitTerminus(
-        events.map((d) => ({ effortKm: d.effortKm, movingHours: movingOf(d) })),
+      // Each fitted ground's factor on the time on the move against mixed ground.
+      grounds: Object.fromEntries(
+        GROUNDS.map((g) => [
+          g,
+          curve.grounds[g] == null
+            ? null
+            : {
+                events: events.filter((d) => d.ground === g).length,
+                pct: round((Math.exp(curve.grounds[g]) - 1) * 100, 0),
+              },
+        ]),
+      ),
+      // On mixed ground: each event's time on the move with its ground's factor taken out.
+      terminus: terminusFor(
+        fitTerminus(
+          events.map((d) => ({
+            effortKm: d.effortKm,
+            movingHours: movingOf(d) / Math.exp(shiftOf(curve, d.ground)),
+          })),
+        ),
+        curve,
       ),
     },
     races: ahead,

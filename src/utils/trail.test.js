@@ -5,6 +5,7 @@ import {
   fitCurve,
   fitStops,
   fitTerminus,
+  ground,
   hm,
   raceName,
   result,
@@ -79,6 +80,46 @@ describe("fitCurve", () => {
       ]),
     ).toBeNull();
     expect(fitCurve([60, 80, 100].map((e) => ({ effortKm: e, hours: onCurve(e) })))).toBeNull();
+  });
+});
+
+describe("ground", () => {
+  it("reads a race line's ground, in English or French", () => {
+    expect(ground("Island Crossing 175 km 10500 m D+, technical")).toBe("technical");
+    expect(ground("Night Trail 80 km 2000 m D+, roulant, 13:45:00")).toBe("runnable");
+    expect(ground("Hill Race 40 km 1500 m D+, 5:10:00")).toBeNull();
+  });
+});
+
+describe("fitCurve, with grounds", () => {
+  // On the curve 0.05 × e^1.3, runnable 20% faster, technical 25% slower.
+  const factor = { runnable: 0.8, technical: 1.25 };
+  const at = (e, g = null) => ({ effortKm: e, ground: g, hours: onCurve(e) * (factor[g] ?? 1) });
+  const points = [
+    at(40),
+    at(100),
+    at(250),
+    at(90, "runnable"),
+    at(210, "runnable"),
+    at(120, "technical"),
+    at(300, "technical"),
+  ];
+
+  it("finds each ground's factor beside the runner's own exponent", () => {
+    const fit = fitCurve(points);
+    expect(fit.b).toBeCloseTo(1.3, 5);
+    expect(Math.exp(fit.grounds.runnable)).toBeCloseTo(0.8, 5);
+    expect(Math.exp(fit.grounds.technical)).toBeCloseTo(1.25, 5);
+    expect(fit.spread).toBeCloseTo(0, 5);
+  });
+
+  it("fits a ground only with 2 events of it, and mixed ones to measure against", () => {
+    expect(fitCurve(points.slice(0, 4)).grounds).toEqual({});
+    // Every event tagged: the rarer ground joins mixed.
+    const tagged = [at(90, "runnable"), at(210, "runnable")].concat(
+      [40, 120, 250, 300].map((e) => at(e, "technical")),
+    );
+    expect(Object.keys(fitCurve(tagged).grounds)).toEqual(["technical"]);
   });
 });
 
@@ -235,6 +276,16 @@ describe("trailPrediction", () => {
     expect(paris).toMatchObject({ km: null, effortKm: null, time: null, within: false });
     expect(result.grid.map((g) => g.effortKm)).toEqual([50, 100, 150, 200, 300]);
     expect(result.grid[1].hours).toBeCloseTo(onCurve(100), 1);
+  });
+
+  it("predicts a race ahead on its ground, and says when that ground can't be fitted", () => {
+    const tagged = trailPrediction(
+      history,
+      "2026-10-28",
+      races.concat({ date: "2027-10-14", text: "Island Crossing 175 km 10500 m D+, technical" }),
+    );
+    expect(tagged.races.at(-1)).toMatchObject({ ground: "technical", groundFitted: false });
+    expect(tagged.races.at(-1).hours).toBeCloseTo(onCurve(280), 0);
   });
 
   it("predicts nothing without enough events", () => {
