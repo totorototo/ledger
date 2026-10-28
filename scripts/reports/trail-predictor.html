@@ -45,7 +45,7 @@
   <header class="masthead" data-masthead></header>
 
   <section class="hero">
-    <p class="eyebrow">Trail predictor · your events, last 3 years</p>
+    <p class="eyebrow">Trail predictor · your races and ultras</p>
     <h1 class="title" data-f="notes.headline">—</h1>
     <p class="lede" data-f="notes.takeaway">—</p>
     <dl class="stats" id="stats"></dl>
@@ -77,7 +77,7 @@
     <div class="chart-head">
       <h2 class="section-title">Your curve</h2>
       <div class="curve-key">
-        <span><i class="ev"></i>events</span><span><i class="tr"></i>long training days</span
+        <span><i class="ev"></i>events</span><span><i class="tr"></i>long days, DNFs</span
         ><span id="key-ahead" hidden><i class="ra"></i>races ahead</span>
       </div>
     </div>
@@ -127,8 +127,8 @@
           </div>
         </dl>
         <p class="note">
-          An event is a race Garmin or your plan marks, or a day of 100 effort-km or more. Outside
-          the calibrated range the curve guesses.
+          An event is a result from your plan, a race Garmin marks, or a day of 100 effort-km or
+          more in the last 3 years; a DNF never is. Outside the calibrated range the curve guesses.
         </p>
       </div>
       <div id="terminus-box" hidden>
@@ -177,7 +177,7 @@
         <tbody id="events"></tbody>
       </table>
     </div>
-    <h2 class="section-title" style="margin-top: 2.5rem">Long training days, not fitted</h2>
+    <h2 class="section-title" style="margin-top: 2.5rem">Long days and DNFs, not fitted</h2>
     <div class="table-wrap">
       <table>
         <thead>
@@ -211,7 +211,7 @@
   // The hero: the races ahead with a time first, then the what-if table, four in all.
   const heroes = [
     ...ahead.map((r) => ({
-      label: r.text.split(",")[0],
+      label: r.name,
       value: r.time,
       sub: `${r.low}–${r.high} · ${r.effortKm} effort-km`,
       anchor: true,
@@ -236,7 +236,7 @@
           el(
             "tr",
             {},
-            el("td", {}, fmt.short(r.date)),
+            el("td", {}, fmt.short(r.date) + ` ${r.date.slice(2, 4)}`),
             el("td", { className: "text" }, r.text),
             el("td", {}, show(r.km)),
             el("td", {}, r.climbM == null ? "—" : `${r.climbM} m`),
@@ -274,7 +274,7 @@
       "tr",
       {},
       el("td", {}, fmt.short(d.date) + ` ${d.date.slice(2, 4)}`),
-      el("td", { className: "text" }, d.name ?? "—"),
+      el("td", { className: "text" }, (d.name ?? "—") + (d.note ? ` · ${d.note}` : "")),
       el("td", {}, show(d.km, "one")),
       el("td", {}, `${d.climbM} m`),
       el("td", {}, show(d.effortKm)),
@@ -414,14 +414,16 @@
         svg(
           "text",
           {
-            x: cx + 10,
-            y: cy - 8,
+            // Near the right edge the label reads leftward, so it stays inside the plot.
+            x: cx > W * 0.6 ? cx - 10 : cx + 10,
+            "text-anchor": cx > W * 0.6 ? "end" : "start",
+            y: cy - 10,
             "font-family": "var(--mono)",
             "font-size": 11,
             "font-weight": 600,
             fill: "var(--primary-text)",
           },
-          `${r.text.split(",")[0]} ${r.time}`,
+          `${r.name} ${r.time}`,
         ),
       );
     }
@@ -440,7 +442,7 @@
                   : "training, not fitted",
               ];
         tipEl.replaceChildren(
-          el("span", {}, `${d.name ?? d.text} · ${fmt.short(d.date)}`),
+          el("span", {}, `${d.name ?? d.text} · ${fmt.date(d.date)}`),
           ...lines.flatMap((l, k) => (k ? [el("br"), l] : [l])),
         );
         tipEl.hidden = false;

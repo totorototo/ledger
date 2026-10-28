@@ -23,14 +23,14 @@ For a flat road race (5 km to marathon), the race-predictor skill answers better
 
 `trail`, over the 3 years `from`–`until`:
 
-| Field          | Meaning                                                                                                                                                                                                                                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fit`          | the model through the events: moving = c × effortKm^`exponent`, plus stops = r × moving² (`stopsAt30h`: the stops after 30 h on the move); `events`, `spreadPct` (how far events' clocks typically sit from it, ±), `fromEffortKm`–`toEffortKm` (the range it was calibrated on), `terminus`; null under 3 events |
-| `fit.terminus` | the same events on Terminus's pace model, moving time only: `basePace` (m:ss /km), `basePaceSPerKm`, `fatigueCoefficient` (Terminus's presets: Low 0.001, Moderate 0.002, High 0.003, Very high 0.004), `spreadPct`                                                                                               |
-| `events[]`     | `date`, `name`, `km`, `climbM`, `effortKm`, `time` (the race clock), `moving`, `stops`, `speed` (effort-km per hour on the move), `why` (`race`: Garmin's flag, `plan`: a past race of the plan, `ultra`: 100 effort-km or more), `offPct` (time against the curve, + slower)                                     |
-| `training[]`   | long days (30 effort-km or more) that aren't events: shown, never fitted                                                                                                                                                                                                                                          |
-| `races[]`      | the plan's races ahead: `date`, `text`, `km`, `climbM`, `effortKm`, `time`, `moving`, `stops`, `low`–`high` (the spread around it), `within` (inside the calibrated range); `effortKm` null when the line gives no km or no D+                                                                                    |
-| `grid[]`       | the model's `time`, `moving`, `stops`, `low`, `high` at 50, 100, 150, 200 and 300 effort-km; `curve[]` is the line the page draws                                                                                                                                                                                 |
+| Field          | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fit`          | the model through the events: moving = c × effortKm^`exponent`, plus stops = r × moving² (`stopsAt30h`: the stops after 30 h on the move); `events`, `spreadPct` (how far events' clocks typically sit from it, ±), `fromEffortKm`–`toEffortKm` (the range it was calibrated on), `terminus`; null under 3 events                                                                                                           |
+| `fit.terminus` | the same events on Terminus's pace model, moving time only: `basePace` (m:ss /km), `basePaceSPerKm`, `fatigueCoefficient` (Terminus's presets: Low 0.001, Moderate 0.002, High 0.003, Very high 0.004), `spreadPct`                                                                                                                                                                                                         |
+| `events[]`     | `date`, `name`, `km`, `climbM`, `effortKm`, `time` (the race clock), `moving`, `stops`, `speed` (effort-km per hour on the move), `why` (`result`: a past race of the plan with its official course and clock, `moving` and `stops` null unless the watch ran that course; `race`: Garmin's flag; `plan`: a plan race's date without a result; `ultra`: 100 effort-km or more), `offPct` (time against the curve, + slower) |
+| `training[]`   | long days (30 effort-km or more) that aren't events, and DNFs (`note` "DNF"): shown, never fitted                                                                                                                                                                                                                                                                                                                           |
+| `races[]`      | the plan's races ahead: `date`, `text`, `name`, `km`, `climbM`, `effortKm`, `time`, `moving`, `stops`, `low`–`high` (the spread around it), `within` (inside the calibrated range); `effortKm` null when the line gives no km or no D+                                                                                                                                                                                      |
+| `grid[]`       | the model's `time`, `moving`, `stops`, `low`, `high` at 50, 100, 150, 200 and 300 effort-km; `curve[]` is the line the page draws                                                                                                                                                                                                                                                                                           |
 
 Effort-km is ITRA's: one kilometre per 100 m of climb. `time` is the race clock (Garmin's
 `elapsedDuration`, pauses included); `moving` the time on the move; `stops` the difference:
@@ -64,9 +64,12 @@ fatigue exponent, not road running's 1.06. Check:
   `moving` and `stops` with another event of its length (a night's sleep, a long aid station).
   A race ahead's `stops` is the runner's usual, not a plan.
 - **Training days** sit slower than the curve, as they should: don't read them as form.
-- **Events are guessed** from length when neither Garmin nor the plan marks them: a long
-  recce day can pass as a race. If one looks like it (a slow outlier), say so and suggest
-  listing past races in `data/plan.md`.
+- **Results over the watch.** A `result` event is the official sheet; a plan line with
+  "DNF" takes its day out. Events of another `why` are guessed from the watch, of the last 3
+  years only: a DNF recorded to the drop or a run with its approach can pass as a race. If one
+  looks like it (an outlier), say so and suggest listing that race's result in `data/plan.md`
+  (`- 2025-11-29 Night Trail 80 km 2000 m D+, 13:45:00`, or `…, DNF`): the runner's ITRA or
+  UTMB page has them all.
 
 ## 4. Write
 

@@ -1,5 +1,15 @@
 import { activity } from "../test/fixtures.js";
-import { course, effortKm, fitCurve, fitStops, fitTerminus, hm, trailPrediction } from "./trail.js";
+import {
+  course,
+  effortKm,
+  fitCurve,
+  fitStops,
+  fitTerminus,
+  hm,
+  raceName,
+  result,
+  trailPrediction,
+} from "./trail.js";
 
 // A trail run on `day`: `km`, `climb` m and `hours` of elapsed time.
 const trail = (id, day, km, climb, hours, overrides = {}) =>
@@ -31,12 +41,26 @@ describe("effortKm and hm", () => {
 describe("course", () => {
   it("reads the distance and the climb from a race line", () => {
     expect(course("Saintélyon 81 km 2100 m D+, A race")).toEqual({ km: 81, climbM: 2100 });
-    expect(course("GRP 120,5 km D+ 7 000, B race")).toEqual({ km: 120.5, climbM: 7000 });
+    expect(course("Mountain Race 120,5 km D+ 7 000, B race")).toEqual({ km: 120.5, climbM: 7000 });
     expect(course("Trail des Cerfs 30 km 1500 m+")).toEqual({ km: 30, climbM: 1500 });
   });
 
   it("leaves out what the line doesn't say", () => {
     expect(course("Marathon de Paris, A race")).toEqual({ km: null, climbM: null });
+  });
+});
+
+describe("result and raceName", () => {
+  it("reads a past race's clock or DNF", () => {
+    expect(result("Night Race 80 km 2000 m D+, 15:30:00").hours).toBe(15.5);
+    expect(result("Mountain Race 160 km 10000 m D+, 47h17").hours).toBeCloseTo(47.2833, 3);
+    expect(result("Mountain Race 160 km 10000 m D+, DNF")).toEqual({ dnf: true });
+    expect(result("Saintélyon 81 km 2100 m D+, A race, goal under 12 h")).toEqual({});
+  });
+
+  it("names a race without its course or result", () => {
+    expect(raceName("Col Trail, The Ridge 43 km 2800 m D+, 8:33:13")).toBe("Col Trail, The Ridge");
+    expect(raceName("Island Crossing 175 km 10500 m D+, A race")).toBe("Island Crossing");
   });
 });
 
@@ -128,6 +152,38 @@ describe("trailPrediction, the race clock", () => {
       "2026-10-28",
     ).events;
     expect(paused).toMatchObject({ time: "24h00", moving: "18h00", stops: "6h00" });
+  });
+});
+
+describe("trailPrediction, the plan's results", () => {
+  const runs = [
+    // The course, with the watch: its moving time is the result's.
+    trail(1, "2026-08-21", 175, 10_000, 49, { movingDuration: 38 * 3600 }),
+    // A run to the start and the race back: 166 km on an 80 km course.
+    trail(2, "2024-11-30", 166, 5251, 30),
+    // A DNF recorded to the drop, 161 km in.
+    trail(3, "2026-05-13", 161, 5040, 38.5),
+  ];
+  const races = [
+    { date: "2026-08-21", text: "Mountain Race 170 km 10000 m D+, 49:30:00" },
+    { date: "2024-11-30", text: "Night Race 80 km 2000 m D+, 15:30:00" },
+    { date: "2026-05-13", text: "Long Race 220 km 8000 m D+, DNF" },
+    // Older than the 3 years: a listed result counts all the same.
+    { date: "2018-08-24", text: "Mountain Race 160 km 10000 m D+, 47:00:00" },
+  ];
+  const result = trailPrediction(runs, "2026-10-28", races);
+
+  it("takes the official course and clock, the watch's moving time when it ran the course", () => {
+    expect(result.events.map((e) => [e.date, e.why, e.name, e.time, e.moving])).toEqual([
+      ["2026-08-21", "result", "Mountain Race", "49h30", "38h00"],
+      ["2024-11-30", "result", "Night Race", "15h30", null],
+      ["2018-08-24", "result", "Mountain Race", "47h00", null],
+    ]);
+    expect(result.events[1].effortKm).toBe(100);
+  });
+
+  it("never fits a DNF, and keeps it in sight", () => {
+    expect(result.training.map((d) => [d.date, d.note])).toEqual([["2026-05-13", "DNF"]]);
   });
 });
 

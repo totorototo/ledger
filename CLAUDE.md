@@ -45,7 +45,9 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   `eventType.typeKey` is "race" on one activity in 1074: trail events (`src/utils/trail.js`) are
   also a plan's past races or any day of 100 effort-km or more. Their time is
   `elapsedDuration` (the race clock): `duration` stops while the watch is paused (2h20 short on
-  one 30 h race here).
+  one 30 h race here). A plan race line with a result (`…, 15:26:19` or `…, DNF`) wins over
+  the watch: the official course and clock, at any age; a DNF day is never an event. The watch
+  is no result sheet: a DNF recorded to the drop reads as a slow finish.
 - The cached history (IndexedDB, one entry per account) is merged by `activityId`; only
   Refresh sees an activity edited or deleted on an older day.
 - Every activity is trimmed to `KEPT` in `src/store/cache.js`: reading a new field means

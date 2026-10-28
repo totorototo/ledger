@@ -44,6 +44,23 @@ export function course(text) {
   };
 }
 
+// A race line's name: the text before its course and result ("Col Trail, The Ridge 43 km
+// 2800 m D+, 8:33:13" → "Col Trail, The Ridge").
+export const raceName = (text) =>
+  text
+    .replace(/,?\s*(?:DNF|\d{1,3}[:h]\d{2}(?::\d{2})?)\b.*$/i, "")
+    .replace(/\s+\d[\d.,]*\s*km\b.*$/i, "")
+    .trim();
+
+// A past race line's result: its clock ("15:26:19", "15:26", "15h26") or a DNF. Empty when
+// it says neither.
+export function result(text) {
+  if (/\bDNF\b/i.test(text)) return { dnf: true };
+  const time = text.match(/\b(\d{1,3})[:h](\d{2})(?::(\d{2}))?\b/);
+  if (!time) return {};
+  return { hours: Number(time[1]) + Number(time[2]) / 60 + Number(time[3] ?? 0) / 3600 };
+}
+
 // Least squares of log(hours) on log(effortKm): b, log c, and the spread of the events around
 // the curve (the residuals' standard deviation, in log). Null under 3 events or when they
 // don't span twice the effort: a curve through one length says nothing of another.
@@ -121,15 +138,29 @@ export function fitTerminus(points) {
   };
 }
 
-// The runner's events and long days of the last 3 years to `until`, the curve through the
-// events, and its times for the plan's races ahead (`races`: { date, text } from plan.md, past
-// ones marking events) and for the what-if table. `activities` are screened: a run whose
-// barometer failed has no climb and is left out. Time is the race clock, `elapsedDuration`:
-// Garmin's `duration` stops while the watch is paused, at an aid station or a night's sleep.
+// The runner's events, the curve through them, and its times for the plan's races ahead and
+// the what-if table. Events are of two kinds:
+// - the plan's past races with a result ("…, 15:26:19", "…, DNF", `result`): the official
+//   course and clock, whatever their age, since the runner chose to list them. Garmin's run that
+//   day gives the time on the move only when its distance is within 15% of the course's: a watch
+//   left running before or after the race, or a run to the start, records something else.
+// - Garmin's runs of the last 3 years flagged a race, on a plan race's date, or of 100 effort-km
+//   or more. A DNF in the plan takes its day out.
+// `activities` are screened: a run whose barometer failed has no climb and is left out. Time
+// is the race clock, `elapsedDuration`: Garmin's `duration` stops while the watch is paused,
+// at an aid station or a night's sleep.
+// why official results over the watch: a DNF recorded to the drop looks like a slow finish,
+// and a race can't be told from its approach run; the result sheet says what was raced.
 export function trailPrediction(activities, until, races = []) {
   const from = addDays(until, -365 * YEARS);
-  const planned = new Set(races.filter((r) => r.date <= until).map((r) => r.date));
-  const days = activities
+  const past = races
+    .filter((r) => r.date <= until)
+    .map((r) => ({ ...r, ...course(r.text), ...result(r.text) }));
+  const planned = new Set(past.map((r) => r.date));
+  const dnf = new Set(past.filter((r) => r.dnf).map((r) => r.date));
+  const results = past.filter((r) => r.hours != null);
+  const resulted = new Set(results.map((r) => r.date));
+  const runs = activities
     .filter((a) => isRun(a) && dayOf(a) >= from && dayOf(a) <= until)
     .filter((a) => a.distance > 0 && (a.elapsedDuration ?? a.duration) > 0)
     .filter((a) => a.elevationGain != null)
@@ -159,13 +190,45 @@ export function trailPrediction(activities, until, races = []) {
         stops: hm(clock - moving),
         speed: round(e / moving, 2),
         why,
+        // The plan says what the day was: a DNF, or a race whose result stands in for the run.
+        note: dnf.has(dayOf(a)) ? "DNF" : resulted.has(dayOf(a)) ? "plan result" : null,
       };
-    })
+    });
+  // A run a result stands in for is that result; a DNF stays in sight among the long days.
+  const days = runs
+    .filter((d) => d.note !== "plan result")
+    .map((d) => (d.note ? { ...d, why: null } : d))
     .filter((d) => d.why || d.effortKm >= LONG_EFFORT_KM);
-  const events = days.filter((d) => d.why);
-  const curve = fitCurve(events.map((d) => ({ effortKm: d.effortKm, hours: d.movingHours })));
+  // A result's time on the move: the watch's when its run that day is the course, else unknown.
+  const official = results
+    .filter((r) => r.km != null && r.climbM != null)
+    .map((r) => {
+      const e = effortKm(r.km, r.climbM);
+      const run = runs.find((d) => d.date === r.date && Math.abs(d.km / r.km - 1) <= 0.15);
+      return {
+        date: r.date,
+        name: raceName(r.text),
+        km: r.km,
+        climbM: r.climbM,
+        effortKm: round(e, 0),
+        hours: round(r.hours, 2),
+        time: hm(r.hours),
+        movingHours: run ? Math.min(run.movingHours, r.hours) : null,
+        moving: run ? hm(Math.min(run.movingHours, r.hours)) : null,
+        stops: run ? hm(r.hours - Math.min(run.movingHours, r.hours)) : null,
+        speed: round(e / (run ? Math.min(run.movingHours, r.hours) : r.hours), 2),
+        why: "result",
+      };
+    });
+  const events = [...official, ...days.filter((d) => d.why)];
+  // Stops from the events whose time on the move is known; the others' moving time is what the
+  // stops model leaves of their clock: moving + r × moving² = clock.
+  const stops = fitStops(events.filter((d) => d.movingHours != null));
+  const movingOf = (d) =>
+    d.movingHours ?? (stops > 0 ? (Math.sqrt(1 + 4 * stops * d.hours) - 1) / (2 * stops) : d.hours);
+  const curve = fitCurve(events.map((d) => ({ effortKm: d.effortKm, hours: movingOf(d) })));
   // The whole model against the events' clocks: its spread is the band's.
-  const model = curve && { curve, stops: fitStops(events), spread: 0 };
+  const model = curve && { curve, stops, spread: 0 };
   const residuals = model
     ? events.map((d) => {
         const { moving, stops } = clockAt(model, d.effortKm);
@@ -187,6 +250,7 @@ export function trailPrediction(activities, until, races = []) {
       return {
         date: r.date,
         text: r.text,
+        name: raceName(r.text),
         km,
         climbM,
         effortKm: round(e, 0),
@@ -214,13 +278,15 @@ export function trailPrediction(activities, until, races = []) {
       spreadPct: round((Math.exp(model.spread) - 1) * 100, 0),
       fromEffortKm: span[0],
       toEffortKm: span[1],
-      terminus: fitTerminus(events),
+      terminus: fitTerminus(
+        events.map((d) => ({ effortKm: d.effortKm, movingHours: movingOf(d) })),
+      ),
     },
     races: ahead,
     grid: model ? GRID.map((e) => ({ effortKm: e, ...predict(model, e) })) : [],
-    // The line the page draws: 25 points from 20 to 320 effort-km, evenly on a log scale.
+    // The line the page draws: 25 points from 20 to 400 effort-km, evenly on a log scale.
     curve: model
-      ? Array.from({ length: 25 }, (_, i) => 20 * 16 ** (i / 24)).map((e) => ({
+      ? Array.from({ length: 25 }, (_, i) => 20 * 20 ** (i / 24)).map((e) => ({
           effortKm: round(e, 0),
           hours: round(clockAt(model, e).moving + clockAt(model, e).stops, 2),
         }))
