@@ -55,7 +55,9 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
 - Probed 2026-10-29: each event's `prepRunKm` (running km of the 84 days before, null where the
   history starts inside them: a gap, never a rest) lined up with `offPct` on 7 ultras (190
   effort-km or more) and not on all 10 events with history. Shown, never fitted, until 8–10 ultras
-  carry it. Training load before an event (ratio, chronic) explained nothing on the 5 that have it,
+  carry it. `fit.outOfSample` refits without each event and predicts it: the band's real cover
+  (±16%, 9 of 16 inside ±13% here), which `spreadPct`, measured on the fitted events, flatters.
+  Training load before an event (ratio, chronic) explained nothing on the 5 that have it,
   and `chronic` reads 0, not null, before load data exists (mid-2023). The trail-predictor skill
   quotes readiness (load ratio, efficiency, HRV, resting HR) only for a race 21 days away or less,
   beside the time, never as an adjustment.

@@ -173,6 +173,32 @@ const clockAt = (model, e, g = null) => {
   return { moving, stops: model.stops * moving ** 2 };
 };
 
+// The model through `events` ({ effortKm, hours, movingHours, ground }): the stops from those
+// whose time on the move is known, the curve through all of them, the others' moving time being
+// what the stops leave of their clock: moving + r × moving² = clock. `curve` null without one.
+function fitModel(events) {
+  const stops = fitStops(events.filter((d) => d.movingHours != null));
+  const movingOf = (d) =>
+    d.movingHours ?? (stops > 0 ? (Math.sqrt(1 + 4 * stops * d.hours) - 1) / (2 * stops) : d.hours);
+  const curve = fitCurve(
+    events.map((d) => ({ effortKm: d.effortKm, hours: movingOf(d), ground: d.ground })),
+  );
+  return { curve, stops, movingOf };
+}
+
+// Each event against the model fitted without it, in log: the error on a race the model hasn't
+// seen. Events whose leaving out leaves no curve are skipped.
+// why: the spread is measured on the events the curve went through, so it flatters it; on the
+// first runner's 16 events, ±13% around the curve held 9 of them once each was left out.
+function leftOut(events) {
+  return events.flatMap((d, i) => {
+    const { curve, stops } = fitModel(events.filter((_, j) => j !== i));
+    if (!curve) return [];
+    const { moving, stops: stopped } = clockAt({ curve, stops }, d.effortKm, d.ground);
+    return [Math.log(d.hours / (moving + stopped))];
+  });
+}
+
 // The time at `e` effort-km, with the band the events' spread sets around it.
 const predict = (model, e, g = null) => {
   const { moving, stops } = clockAt(model, e, g);
@@ -317,14 +343,7 @@ export function trailPrediction(activities, until, races = []) {
       };
     });
   const events = [...official, ...days.filter((d) => d.why)];
-  // Stops from the events whose time on the move is known; the others' moving time is what the
-  // stops model leaves of their clock: moving + r × moving² = clock.
-  const stops = fitStops(events.filter((d) => d.movingHours != null));
-  const movingOf = (d) =>
-    d.movingHours ?? (stops > 0 ? (Math.sqrt(1 + 4 * stops * d.hours) - 1) / (2 * stops) : d.hours);
-  const curve = fitCurve(
-    events.map((d) => ({ effortKm: d.effortKm, hours: movingOf(d), ground: d.ground })),
-  );
+  const { curve, stops, movingOf } = fitModel(events);
   // The whole model against the events' clocks: its spread is the band's.
   const model = curve && { curve, stops, spread: 0 };
   const residuals = model
@@ -442,6 +461,22 @@ export function trailPrediction(activities, until, races = []) {
       spreadPct: round((Math.exp(model.spread) - 1) * 100, 0),
       fromEffortKm: span[0],
       toEffortKm: span[1],
+      // Each event predicted without it: how far a race the model hasn't seen lands (root mean
+      // square), and how many of them the band held.
+      outOfSample: (() => {
+        const errors = leftOut(events);
+        return errors.length
+          ? {
+              events: errors.length,
+              pct: round(
+                (Math.exp(Math.sqrt(errors.reduce((s, r) => s + r * r, 0) / errors.length)) - 1) *
+                  100,
+                0,
+              ),
+              inBand: errors.filter((r) => Math.abs(r) <= model.spread).length,
+            }
+          : null;
+      })(),
       // Each fitted ground's factor on the time on the move against mixed ground.
       grounds: Object.fromEntries(
         GROUNDS.map((g) => [

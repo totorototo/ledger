@@ -325,6 +325,37 @@ describe("trailPrediction, recent form", () => {
   });
 });
 
+describe("trailPrediction, out of sample", () => {
+  const race = (id, day, km, climb, factor) =>
+    trail(id, day, km, climb, onCurve(effortKm(km, climb)) * factor, {
+      eventType: { typeKey: "race" },
+    });
+  const lengths = [
+    [30, 1000],
+    [50, 2000],
+    [80, 3000],
+    [120, 5000],
+    [160, 8000],
+    [200, 9000],
+  ];
+  const events = (factors) =>
+    lengths.map(([km, climb], i) => race(i + 1, `2025-0${i + 1}-01`, km, climb, factors[i]));
+
+  it("predicts each event without it, and says how many the band held", () => {
+    const { fit } = trailPrediction(events([1, 1.2, 0.85, 1.1, 0.9, 1]), "2026-10-28");
+    expect(fit.outOfSample.events).toBe(6);
+    // A race the curve hasn't seen lands further than the events it went through.
+    expect(fit.outOfSample.pct).toBeGreaterThan(fit.spreadPct);
+    expect(fit.outOfSample.inBand).toBeLessThan(6);
+  });
+
+  it("misses nothing on events right on the curve", () => {
+    const { fit } = trailPrediction(events([1, 1, 1, 1, 1, 1]), "2026-10-28");
+    // Only the events' rounding (hours, effort-km) is left: under 1%.
+    expect(fit.outOfSample).toMatchObject({ events: 6, pct: 0 });
+  });
+});
+
 describe("trailPrediction, preparation", () => {
   const race = (id, day, km, climb) =>
     trail(id, day, km, climb, onCurve(effortKm(km, climb)), { eventType: { typeKey: "race" } });

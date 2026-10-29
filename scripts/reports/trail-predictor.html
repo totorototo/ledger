@@ -143,6 +143,10 @@
             <dt>Spread</dt>
             <dd id="spread">—</dd>
           </div>
+          <div id="out-of-sample" hidden>
+            <dt>On an unseen race</dt>
+            <dd>—</dd>
+          </div>
           <div>
             <dt>Events</dt>
             <dd data-f="fit.events">—</dd>
@@ -332,6 +336,14 @@
   if (F) {
     document.getElementById("spread").textContent = `±${F.spreadPct}%`;
     document.getElementById("range").textContent = `${F.fromEffortKm}–${F.toEffortKm} effort-km`;
+    // Each event predicted without it: how far an unseen race lands, how many the band held.
+    const OS = F.outOfSample;
+    if (OS) {
+      const row = document.getElementById("out-of-sample");
+      row.hidden = false;
+      row.querySelector("dd").textContent =
+        `±${OS.pct}% · ${OS.inBand} of ${OS.events} in the range`;
+    }
     if (F.terminus) {
       document.getElementById("terminus-box").hidden = false;
       document.getElementById("terminus-spread").textContent = `±${F.terminus.spreadPct}%`;
