@@ -50,7 +50,15 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   (`runnable`, `technical`): one factor each on the time on the move, against untagged courses. Without a curve (under 3 events, or within twice each other's length),
   times scale from one event with an assumed exponent (`assumed`), never passed off as fitted. `recentForm` (the last 24 months'
   events against the curve) sits beside each time as `formTime`, never folded into the fit. The watch
-  is no result sheet: a DNF recorded to the drop reads as a slow finish.
+  is no result sheet: a DNF recorded to the drop reads as a slow finish. A finished race run badly
+  (in a group, in bad weather) stays in the fit: dropping bad days makes the band optimistic.
+- Probed 2026-10-29: each event's `prepRunKm` (running km of the 84 days before, null where the
+  history starts inside them: a gap, never a rest) lined up with `offPct` on 7 ultras (190
+  effort-km or more) and not on all 10 events with history. Shown, never fitted, until 8–10 ultras
+  carry it. Training load before an event (ratio, chronic) explained nothing on the 5 that have it,
+  and `chronic` reads 0, not null, before load data exists (mid-2023). The trail-predictor skill
+  quotes readiness (load ratio, efficiency, HRV, resting HR) only for a race 21 days away or less,
+  beside the time, never as an adjustment.
 - The cached history (IndexedDB, one entry per account) is merged by `activityId`; only
   Refresh sees an activity edited or deleted on an older day.
 - Every activity is trimmed to `KEPT` in `src/store/cache.js`: reading a new field means
