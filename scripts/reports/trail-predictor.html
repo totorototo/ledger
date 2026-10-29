@@ -220,6 +220,7 @@
             <th>Stops</th>
             <th>Effort-km/h</th>
             <th>vs curve</th>
+            <th>Run km, 12 wk before</th>
           </tr>
         </thead>
         <tbody id="events"></tbody>
@@ -382,6 +383,7 @@
             d.offPct == null ? "—" : `${d.offPct > 0 ? "+" : ""}${d.offPct}%`,
           )
         : null,
+      withOff ? el("td", {}, show(d.prepRunKm)) : null,
     );
   document.getElementById("events").append(...R.events.map((d) => row(d, true)));
   document.getElementById("training").append(...R.training.map((d) => row(d, false)));

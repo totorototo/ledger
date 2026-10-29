@@ -325,6 +325,48 @@ describe("trailPrediction, recent form", () => {
   });
 });
 
+describe("trailPrediction, preparation", () => {
+  const race = (id, day, km, climb) =>
+    trail(id, day, km, climb, onCurve(effortKm(km, climb)), { eventType: { typeKey: "race" } });
+  const run = (id, day, km) =>
+    activity({
+      activityId: id,
+      startTimeLocal: `${day} 07:00:00`,
+      activityType: { typeKey: "running" },
+      distance: km * 1000,
+      duration: km * 360,
+    });
+  const ride = activity({
+    activityId: 90,
+    startTimeLocal: "2026-07-01 07:00:00",
+    activityType: { typeKey: "road_biking" },
+    distance: 80000,
+    duration: 3 * 3600,
+  });
+
+  it("sums the running km of the 12 weeks before each event, never another sport's", () => {
+    const result = trailPrediction(
+      [
+        run(10, "2026-01-01", 5),
+        run(11, "2026-06-01", 20),
+        run(12, "2026-08-20", 15),
+        ride,
+        race(1, "2024-06-01", 40, 1500),
+        race(2, "2025-06-01", 100, 4000),
+        race(3, "2026-08-21", 200, 8000),
+      ],
+      "2026-10-28",
+    );
+    const prepOf = (date) => result.events.find((e) => e.date === date).prepRunKm;
+    // The race day's own km, the ride and the run of 2026-01-01, out of the window, don't count.
+    expect(prepOf("2026-08-21")).toBe(35);
+    // The history covers those 12 weeks and holds no run: 0, a rest.
+    expect(prepOf("2025-06-01")).toBe(0);
+    // The history starts inside them: unknown, not 0.
+    expect(prepOf("2024-06-01")).toBeNull();
+  });
+});
+
 describe("trailPrediction, too few events for a curve", () => {
   // Two events, too close in length to fit: 100 effort-km in 20 h, 120 in 25 h.
   const two = [

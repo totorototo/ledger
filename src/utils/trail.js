@@ -31,6 +31,12 @@ export const MIN_GROUND = 2;
 // and the form says how far the last two seasons lean from it, on how few races.
 export const FORM_DAYS = 730;
 export const MIN_FORM = 2;
+// Preparation: the running km of the PREP_DAYS before each event, shown beside it, never fitted.
+// why shown and not fitted: on the first runner's 7 ultras (190 effort-km or more) with that
+// history, the lighter the 12 weeks, the slower against the curve (240 km: +15%, 569 km: −13%),
+// but not on the 3 shorter events; 7 events can't set a coefficient, and a race ahead's
+// preparation isn't run yet.
+export const PREP_DAYS = 84;
 // With too few events for a curve, a time scales from one of them with an assumed exponent,
 // and a range that starts at ±ASSUMED_SPREAD and widens with each doubling away from it.
 // why 1.15: between road running's 1.06 (Riegel) and the 1.16 to 1.30 this project's first
@@ -407,6 +413,17 @@ export function trailPrediction(activities, until, races = []) {
         within: e != null && span != null && e >= span[0] && e <= span[1],
       };
     });
+  // The running km of the PREP_DAYS before `date`; null when the history starts inside them:
+  // no activity there is a gap, not a rest.
+  const first = activities.map(dayOf).filter(Boolean).sort()[0];
+  const prep = (date) => {
+    const start = addDays(date, -PREP_DAYS);
+    if (!first || first > start) return null;
+    const km = activities
+      .filter((a) => isRun(a) && dayOf(a) >= start && dayOf(a) < date)
+      .reduce((sum, a) => sum + (a.distance ?? 0) / 1000, 0);
+    return round(km, 0);
+  };
   return {
     from,
     until,
@@ -414,6 +431,7 @@ export function trailPrediction(activities, until, races = []) {
       .map((d, i) => ({
         ...d,
         offPct: model ? round((Math.exp(residuals[i]) - 1) * 100, 0) : null,
+        prepRunKm: prep(d.date),
       }))
       .sort((a, b) => b.date.localeCompare(a.date)),
     training: days.filter((d) => !d.why).sort((a, b) => b.date.localeCompare(a.date)),
