@@ -522,14 +522,13 @@
     }
     for (const [d, c, kind] of dots) {
       c.addEventListener("pointerenter", () => {
+        // A result the watch didn't run, or a time scaled without a curve, has no split.
+        const split = d.moving ? ` · ${d.moving} moving + ${d.stops} stops` : "";
         const lines =
           kind === "ahead"
-            ? [
-                `predicted ${d.time} (${d.low}–${d.high})`,
-                `${d.moving} moving + ${d.stops} stops · ${d.effortKm} effort-km`,
-              ]
+            ? [`predicted ${d.time} (${d.low}–${d.high})`, `${d.effortKm} effort-km${split}`]
             : [
-                `${d.time} · ${d.moving} moving + ${d.stops} stops · ${d.effortKm} effort-km`,
+                `${d.time}${split} · ${d.effortKm} effort-km`,
                 kind === "event"
                   ? d.offPct == null
                     ? "scaled from, not fitted"
