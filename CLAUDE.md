@@ -123,6 +123,9 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   the numbers into their words, so the words can't go stale beside them. Probed 2026-11-05: the
   longest running break of the 84 days before a long race separates only 2 of 4 DNFs (at most 14
   days before a finish; 20 and 37, against 8 and 5); the page says so.
+- `/refresh-reports` (`.claude/skills/refresh-reports/`) exports, reruns every report and
+  republishes each page to its link. It's meant for a Monday scheduled task in Claude Desktop, set
+  up in the app rather than in this repo.
 - The pages are Ledger in Trail Suite's voice (`scripts/reports/base.css`): mono titles,
   numbers and labels, ledger rows on 10% hairlines, violet for trends, the theme's own grounds
   (light #c4c4c4). No cards, pills or gradients.
