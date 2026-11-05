@@ -82,19 +82,20 @@ sleep, not training: say so.
 
 ## 4. Verdict
 
-About now only, one of:
+About now only. A rising flag is a load spike, a sustained high ratio or a volume jump. Take the
+first that holds, so exactly one always applies:
 
-- **Steady:** no flag now, `lastWeek.load.ratio` 0.8–1.3.
-- **Lighter:** `lastWeek.load.ratio` under 0.8 and no rising flag now (spike, sustained high
-  ratio, volume jump). Not a warning: ask whether it was planned.
-- **Watch:** one rising flag now with HRV in its band (or no HRV), a ratio of 1.3–1.5, or
-  HRV under band now without rising load (illness, stress, sleep: say which the notes and
-  `sleep` point to, else ask).
-- **Overreaching risk:** a rising flag now **and** HRV under band now; or, with no HRV, a
-  rising flag now plus resting HR raised now, or a load spike now plus a volume jump or a
-  sustained high ratio now. Resting HR raised beside HRV under band makes it firmer: say so.
+1. **Overreaching risk:** a rising flag now **and** HRV under band now; or, with no HRV, a
+   rising flag now plus resting HR raised now, or a load spike now plus a volume jump or a
+   sustained high ratio now. Resting HR raised beside HRV under band makes it firmer: say so.
+2. **Watch:** any rising flag now, `lastWeek.load.ratio` over 1.3, or HRV under band now without
+   rising load (illness, stress, sleep: say which the notes and `sleep` point to, else ask).
+3. **Lighter:** `lastWeek.load.ratio` under 0.8. Not a warning: ask whether it was planned.
+4. **Steady:** everything else: `lastWeek.load.ratio` 0.8–1.3, with no rising flag and HRV not
+   under band.
 
-Abrupt drop and grey-zone drift never raise the verdict past Watch. A rising flag with HRV in
+Abrupt drop, grey-zone drift, short sleep and resting HR raised on its own never set the verdict:
+list them under **Now** beside it, so a Steady week can carry a flag. A rising flag with HRV in
 its band says the load is being absorbed so far: say so, it's the most useful line here.
 
 Be honest about what the data can't show: soreness and how training feels, unless the plan's
