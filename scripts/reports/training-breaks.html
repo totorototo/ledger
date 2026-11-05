@@ -1,0 +1,94 @@
+<title>Training Breaks</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow" id="eyebrow"></p>
+    <h1 class="title" data-f="headline">—</h1>
+    <p class="lede" data-f="lede">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band">
+    <h2 class="section-title">Before each long race</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="text">Result</th>
+            <th>Longest break</th>
+            <th>Running days</th>
+            <th class="text">Race</th>
+          </tr>
+        </thead>
+        <tbody id="races"></tbody>
+      </table>
+    </div>
+    <p class="note" id="note"></p>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  const days = (n) => `${n} day${n === 1 ? "" : "s"}`;
+  const { now, next, races, longestBeforeFinish: most } = R;
+
+  document.getElementById("eyebrow").textContent = `Training breaks · ${R.days} days before a race`;
+  document.getElementById("stats").append(
+    stat({
+      label: "Longest break now",
+      value: now ? String(now.days) : "—",
+      unit: "days",
+      sub: now?.from ? `${fmt.short(now.from)} to ${fmt.short(now.to)}` : null,
+      anchor: true,
+    }),
+    stat({
+      label: "Most before a finish",
+      value: most == null ? "—" : String(most),
+      unit: "days",
+      sub: `${R.finishes} finishes`,
+    }),
+    ...(next
+      ? [
+          stat({
+            label: `${next.name} window`,
+            value: fmt.short(next.windowOpens),
+            sub: `opens ${next.windowOpens.slice(0, 4)}, ${R.days} days before`,
+          }),
+        ]
+      : []),
+  );
+
+  document.getElementById("races").append(
+    ...races.map((r) =>
+      el(
+        "tr",
+        {},
+        el("td", {}, fmt.date(r.date)),
+        el("td", { className: "text" }, r.dnf ? "DNF" : "Finished"),
+        el(
+          "td",
+          { className: most != null && r.before.days > most ? "alert" : "" },
+          days(r.before.days),
+        ),
+        el("td", {}, String(r.before.runDays)),
+        el("td", { className: "text" }, r.name),
+      ),
+    ),
+  );
+
+  const older = R.withoutHistory
+    ? ` ${R.withoutHistory} older long race${R.withoutHistory === 1 ? " has" : "s have"} no training on record and ${R.withoutHistory === 1 ? "isn't" : "aren't"} listed.`
+    : "";
+  document.getElementById("note").textContent =
+    `Long races are 190 effort-km or more. A break is the days with no run, counted over the ${R.days} days before; other sports don't end one. Few running days can mean the watch wasn't worn. Garmin doesn't record why a race ended, so this shows what came before a DNF, not what caused it.${older}`;
+</script>

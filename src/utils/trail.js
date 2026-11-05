@@ -515,7 +515,13 @@ export function trailPrediction(activities, until, races = []) {
     recentForm:
       form == null
         ? null
-        : { from: formFrom, events: recent.length, pct: round((Math.exp(form) - 1) * 100, 0) },
+        : {
+            from: formFrom,
+            events: recent.length,
+            pct: round((Math.exp(form) - 1) * 100, 0),
+            // A DNF is never an event, so the form can't see it: said beside the form.
+            dnfs: past.filter((r) => r.dnf && r.date > formFrom).length,
+          },
     races: ahead,
     grid:
       model || anchor

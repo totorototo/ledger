@@ -118,6 +118,11 @@ reads Garmin Connect data but isn't Garmin's, and the footer says so.
   `data/reports/<skill>.notes.json`, and `npm run report -- <skill>` (`scripts/report.mjs`,
   pure picking in `scripts/reports/build.js`) takes the numbers from `metrics.json` itself and
   fills `scripts/reports/<skill>.html`. A note the builder can't read fails the build by name.
+- Two pages have no skill or notes: `race-form` and `training-breaks` (`src/utils/breaks.js`).
+  `npm run report -- <page>` fills them from `metrics.json`, and pure functions in `build.js` turn
+  the numbers into their words, so the words can't go stale beside them. Probed 2026-11-05: the
+  longest running break of the 84 days before a long race separates only 2 of 4 DNFs (at most 14
+  days before a finish; 20 and 37, against 8 and 5); the page says so.
 - The pages are Ledger in Trail Suite's voice (`scripts/reports/base.css`): mono titles,
   numbers and labels, ledger rows on 10% hairlines, violet for trends, the theme's own grounds
   (light #c4c4c4). No cards, pills or gradients.

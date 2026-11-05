@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { activity } from "../../src/test/fixtures.js";
 import { insights } from "../../src/utils/insights.js";
-import { checkNotes, render, reportData } from "./build.js";
+import { breaksReading, checkNotes, formReading, render, reportData } from "./build.js";
 
 // A run on `day`, with a 5 km split; easy (Z2) unless `hard`.
 const run = (id, day, { hard = false, ...overrides } = {}) =>
@@ -104,6 +104,51 @@ describe("reportData", () => {
     expect(() =>
       reportData("weekly-review", { version: metrics.version, empty: true }, {}),
     ).toThrow(/no activities/);
+  });
+});
+
+describe("pages without notes", () => {
+  it("reads the form against what one race can swing", () => {
+    const form = (pct, dnfs = 0) => formReading({ events: 4, pct, dnfs }, 13);
+    expect(form(-8).headline).toBe("No sign of decline");
+    expect(form(-8).lede).toMatch(/8% faster.*doesn't prove you've improved/);
+    expect(form(-13).headline).toBe("Faster than your curve");
+    expect(form(5).headline).toBe("No clear change");
+    expect(form(15).headline).toBe("Slower than your curve");
+    expect(form(-8, 1).lede).toMatch(/1 DNF in that time isn't counted/);
+    expect(form(-8, 2).lede).toMatch(/2 DNFs in that time aren't counted/);
+  });
+
+  it("says how little the breaks cover", () => {
+    const reading = breaksReading({ dnfs: 4, dnfsOverFinishes: 2, longestBeforeFinish: 14 });
+    expect(reading.headline).toBe("A long break came before 2 of 4 DNFs");
+    expect(reading.lede).toMatch(/other 2 had no such break/);
+    expect(breaksReading({ dnfs: 2, dnfsOverFinishes: 0, longestBeforeFinish: 14 }).headline).toBe(
+      "Breaks don't explain your DNFs",
+    );
+    expect(
+      breaksReading({ dnfs: 1, dnfsOverFinishes: null, longestBeforeFinish: null }).headline,
+    ).toBe("Nothing to compare yet");
+  });
+
+  it("builds with no notes, and refuses a history that can't answer", () => {
+    expect(() => reportData("race-form", metrics, null)).toThrow(/fitted curve/);
+    expect(() => reportData("training-breaks", metrics, null)).toThrow(/no long race/);
+  });
+
+  it("gives the breaks page its races and the next window", () => {
+    const withPlan = {
+      ...metrics,
+      breaks: {
+        races: [{ date: "2026-01-01", name: "R", effortKm: 200, dnf: true, before: { days: 20 } }],
+        dnfs: 1,
+        dnfsOverFinishes: 1,
+        longestBeforeFinish: 5,
+      },
+    };
+    const data = reportData("training-breaks", withPlan, null);
+    expect(data.headline).toBe("A long break came before 1 of 1 DNFs");
+    expect(data.races).toHaveLength(1);
   });
 });
 

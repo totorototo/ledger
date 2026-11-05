@@ -3,6 +3,7 @@
 // yearStats.js): a skill interprets these numbers, it never computes its own, so what it says
 // matches what the app shows. Distances in km, times in hours, climb in m, all rounded.
 
+import { breakSummary } from "./breaks.js";
 import {
   addDays,
   dayOf,
@@ -315,6 +316,11 @@ export function insights(
     lastWeek: lastWeek(activities, until, first, { nights, resting, sleep: slept, entries }),
     race: racePrediction(activities, until),
     trail: trailPrediction(
+      activities,
+      until,
+      entries.filter((e) => e.kind === "race").map((e) => ({ date: e.from, text: e.text })),
+    ),
+    breaks: breakSummary(
       activities,
       until,
       entries.filter((e) => e.kind === "race").map((e) => ({ date: e.from, text: e.text })),

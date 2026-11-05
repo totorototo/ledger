@@ -1,0 +1,80 @@
+<title>Race Form</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<!-- BASE_STYLE -->
+
+<div class="page">
+  <header class="masthead" data-masthead></header>
+
+  <section class="hero">
+    <p class="eyebrow">Race form · last 24 months</p>
+    <h1 class="title" data-f="headline">—</h1>
+    <p class="lede" data-f="lede">—</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="band">
+    <div class="chart-head">
+      <h2 class="section-title">Each event against your curve</h2>
+      <div class="readout"><span id="since"></span></div>
+    </div>
+    <div class="plot" id="plot"></div>
+    <p class="note" id="plot-note"></p>
+  </section>
+
+  <footer class="foot" data-foot></footer>
+</div>
+
+<script id="report" type="application/json">
+  "__REPORT__"
+</script>
+<!-- BASE_SCRIPT -->
+<script>
+  const signed = (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%`;
+  const { form, race, events, spreadPct } = R;
+
+  document.getElementById("stats").append(
+    stat({
+      label: "Recent form",
+      value: signed(form.pct),
+      sub: `${form.events} events since ${fmt.short(form.from)} ${form.from.slice(0, 4)}`,
+      anchor: true,
+    }),
+    stat({ label: "One race swings", value: `±${spreadPct}%`, sub: "around the curve" }),
+    ...(race
+      ? [
+          stat({
+            label: `${race.name}, on your curve`,
+            value: race.time,
+            sub: R.daysTo == null ? null : `in ${R.daysTo} days`,
+          }),
+          stat({ label: "At recent form", value: race.formTime ?? "—" }),
+        ]
+      : []),
+  );
+
+  document.getElementById("since").textContent =
+    `${events.length} events since ${events[0].date.slice(0, 4)}`;
+  document.getElementById("plot-note").textContent =
+    `One point per finished event, evenly spaced. Below zero ran faster than the curve, above it slower. The shaded band is ±${spreadPct}%. DNFs aren't events, so they don't appear.`;
+
+  // Two empty slots at the end keep the last point clear of the scale's labels at phone width.
+  const blank = [{ text: "" }, { text: "" }];
+  lineChart(document.getElementById("plot"), {
+    labels: [
+      ...events.map((e, i) => ({
+        text: `’${e.date.slice(2, 4)}`,
+        strong: i === events.length - 1,
+      })),
+      ...blank,
+    ],
+    series: [{ values: [...events.map((e) => e.offPct), null, null] }],
+    step: 10,
+    bands: [{ from: -spreadPct, to: spreadPct }],
+    refs: [{ value: 0, label: "curve" }],
+    format: (v) => signed(v),
+    tip: (i) => {
+      const e = events[Math.min(i, events.length - 1)];
+      return [fmt.date(e.date), e.name, `${e.time} · ${signed(e.offPct)}`];
+    },
+  });
+</script>

@@ -12,6 +12,8 @@ export const SKILLS = [
   "load-check",
   "weekly-review",
   "aerobic-progress",
+  "race-form",
+  "training-breaks",
 ];
 export const VERDICTS = ["Steady", "Lighter", "Watch", "Overreaching risk"];
 
@@ -28,6 +30,10 @@ const DISCLAIMER = {
   "weekly-review": "Based on Garmin's activity and wellness summaries; not medical advice.",
   "aerobic-progress":
     "Based on Garmin's activity and wellness summaries; heat, terrain and sensor accuracy move these numbers; not medical advice.",
+  "race-form":
+    "Compared with a power curve fitted on your own finished events; terrain, weather and aid stations move a trail time; an estimate, not a promise.",
+  "training-breaks":
+    "Based on the runs Garmin recorded; a pattern in a few races, not a cause, and not medical advice.",
 };
 
 // What each skill's notes must hold: a key and a check. A missing or malformed note fails the
@@ -63,6 +69,10 @@ const NOTES = {
   },
   "aerobic-progress": { headline: text, takeaway: text, trend: texts, worthTrying: optional },
 };
+
+// A page with no skill behind it has no notes: its words come from its numbers, so they can't
+// go stale beside them.
+export const hasNotes = (skill) => skill in NOTES;
 
 export function checkNotes(skill, notes) {
   const bad = Object.entries(NOTES[skill]).filter(([key, ok]) => !ok(notes?.[key]));
@@ -194,12 +204,89 @@ function trailPredictor(m) {
   };
 }
 
+// What the recent form can honestly say: `spreadPct` is how far one race swings from the curve.
+export function formReading({ events, pct, dnfs }, spreadPct) {
+  const size = Math.abs(pct);
+  const headline =
+    pct <= -spreadPct
+      ? "Faster than your curve"
+      : pct >= spreadPct
+        ? "Slower than your curve"
+        : pct < 0
+          ? "No sign of decline"
+          : "No clear change";
+  const compared =
+    pct === 0
+      ? `Your last ${events} events ran on your curve.`
+      : `Your last ${events} events ran ${size}% ${pct < 0 ? "faster" : "slower"} than your curve.`;
+  const inside = Math.abs(pct) < spreadPct;
+  const meaning = !inside
+    ? `That is outside the ±${spreadPct}% one race can swing.`
+    : pct < 0
+      ? `That is inside the ±${spreadPct}% one race can swing, so it shows no decline and doesn't prove you've improved.`
+      : `That is inside the ±${spreadPct}% one race can swing.`;
+  const dropped = dnfs
+    ? ` ${dnfs} DNF${dnfs > 1 ? "s" : ""} in that time ${dnfs > 1 ? "aren't" : "isn't"} counted.`
+    : "";
+  return { headline, lede: `${compared} ${meaning}${dropped}` };
+}
+
+function raceForm(m) {
+  const t = m.trail;
+  if (!t?.fit || !t.recentForm)
+    throw new Error("race-form: needs a fitted curve and 2 events in the last 24 months");
+  const race = t.races[0];
+  return {
+    ...formReading(t.recentForm, t.fit.spreadPct),
+    form: t.recentForm,
+    spreadPct: t.fit.spreadPct,
+    outOfSample: t.fit.outOfSample,
+    events: t.events
+      .map((e) => ({ date: e.date, name: e.name, offPct: e.offPct, time: e.time }))
+      .reverse(),
+    race: race ? { name: race.name, time: race.time, formTime: race.formTime } : null,
+    daysTo: race ? (m.plan?.nextRace?.daysTo ?? null) : null,
+  };
+}
+
+// The conclusion the breaks allow, and how little it covers.
+export function breaksReading({ dnfs, dnfsOverFinishes: over, longestBeforeFinish: most }) {
+  if (over == null)
+    return {
+      headline: "Nothing to compare yet",
+      lede: "It takes a finished long race and a DNF, each with its training on record.",
+    };
+  const others = dnfs - over;
+  if (!over)
+    return {
+      headline: "Breaks don't explain your DNFs",
+      lede: `Your longest break before a finish was ${most} days, and no DNF followed a longer one.`,
+    };
+  return {
+    headline: `A long break came before ${over} of ${dnfs} DNFs`,
+    lede:
+      `Your longest break before a finish was ${most} days, and ${over} DNF${over > 1 ? "s" : ""} followed a longer one.` +
+      (others
+        ? ` The other ${others} had no such break, so training without one doesn't protect a finish.`
+        : ""),
+  };
+}
+
+function trainingBreaks(m) {
+  const b = m.breaks;
+  if (!b?.races.length)
+    throw new Error("training-breaks: no long race with its training on record");
+  return { ...breaksReading(b), ...b, daysTo: m.plan?.nextRace?.daysTo ?? null };
+}
+
 const PICK = {
   "race-predictor": racePredictor,
   "trail-predictor": trailPredictor,
   "load-check": loadCheck,
   "weekly-review": weeklyReview,
   "aerobic-progress": aerobicProgress,
+  "race-form": raceForm,
+  "training-breaks": trainingBreaks,
 };
 
 // The data a page reads: its numbers from metrics.json, the skill's notes, the footer's line.
@@ -210,7 +297,7 @@ export function reportData(skill, metrics, notes) {
       `metrics.json is version ${metrics?.version}, the reports read ${METRICS_VERSION}: run npm run export`,
     );
   if (metrics.empty) throw new Error("metrics.json has no activities");
-  checkNotes(skill, notes);
+  if (hasNotes(skill)) checkNotes(skill, notes);
   return {
     skill,
     until: metrics.until,

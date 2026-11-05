@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { render, reportData, SKILLS } from "./reports/build.js";
+import { hasNotes, render, reportData, SKILLS } from "./reports/build.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "data", "reports");
@@ -30,12 +30,12 @@ try {
     console.log(`recorded ${skill}: ${url}`);
   } else {
     const notesPath = join(OUT, `${skill}.notes.json`);
-    if (!existsSync(notesPath))
+    if (hasNotes(skill) && !existsSync(notesPath))
       throw new Error(`no ${notesPath}: the skill writes its notes first`);
     const data = reportData(
       skill,
       JSON.parse(read(join(ROOT, "data", "metrics.json"))),
-      JSON.parse(read(notesPath)),
+      hasNotes(skill) ? JSON.parse(read(notesPath)) : null,
     );
     const base = join(ROOT, "scripts", "reports");
     const page = render(

@@ -314,6 +314,15 @@ describe("trailPrediction, recent form", () => {
     expect(result.grid[0].formTime).not.toBeNull();
   });
 
+  it("counts the DNFs its window can't see", () => {
+    const dropped = [
+      { date: "2023-07-19", text: "Too Old 100 km 5000 m D+, DNF" },
+      { date: "2026-07-19", text: "Dropped 100 km 5000 m D+, DNF" },
+    ];
+    const result = trailPrediction([...older, ...recent], "2026-10-28", [...ahead, ...dropped]);
+    expect(result.recentForm.dnfs).toBe(1);
+  });
+
   it("says nothing on one recent event", () => {
     const result = trailPrediction(
       [...older, race(5, "2024-06-01", 60, 1500, 1), recent[1]],
