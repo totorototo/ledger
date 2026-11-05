@@ -68,23 +68,25 @@
       : []),
   );
 
-  document.getElementById("races").append(
-    ...races.map((r) =>
-      el(
-        "tr",
-        {},
-        el("td", {}, fmt.date(r.date)),
-        el("td", { className: "text" }, r.dnf ? "DNF" : "Finished"),
+  document
+    .getElementById("races")
+    .append(
+      ...races.map((r) =>
         el(
-          "td",
-          { className: most != null && r.before.days > most ? "alert" : "" },
-          days(r.before.days),
+          "tr",
+          {},
+          el("td", {}, fmt.date(r.date)),
+          el("td", { className: "text" }, r.dnf ? "DNF" : "Finished"),
+          el(
+            "td",
+            { className: most != null && r.before.days > most ? "alert" : "" },
+            days(r.before.days),
+          ),
+          el("td", {}, String(r.before.runDays)),
+          el("td", { className: "text" }, r.name),
         ),
-        el("td", {}, String(r.before.runDays)),
-        el("td", { className: "text" }, r.name),
       ),
-    ),
-  );
+    );
 
   const older = R.withoutHistory
     ? ` ${R.withoutHistory} older long race${R.withoutHistory === 1 ? " has" : "s have"} no training on record and ${R.withoutHistory === 1 ? "isn't" : "aren't"} listed.`
